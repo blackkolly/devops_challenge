@@ -51,4 +51,113 @@ How it works:
 •	Uses dpkg -l | grep -qw to check if a package is installed.
 •	If not installed, it installs the package using sudo apt-get install -y.
 
+Challenge 6: Create a script that monitors CPU and memory usage every 5 seconds and logs the results to a file.
+
+#monitor_resources.sh
+#!/bin/bash
+
+# Define the log file
+LOG_FILE="resource_usage.log"
+
+echo "Monitoring CPU and Memory usage... Logs will be saved in $LOG_FILE"
+echo "Timestamp          | CPU (%) | Memory (%)" > "$LOG_FILE"
+
+# Infinite loop to log system usage every 5 seconds
+while true; do
+    TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
+    
+    # Get CPU usage
+    CPU_USAGE=$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}')
+    
+    # Get Memory usage
+    MEM_USAGE=$(free | awk '/Mem/ {printf "%.2f", $3/$2 * 100}')
+    
+    # Write data to the log file
+    echo "$TIMESTAMP |  $CPU_USAGE  |  $MEM_USAGE" >> "$LOG_FILE"
+    
+    # Wait for 5 seconds
+    sleep 5
+done
+
+Explanation:
+
+Defines the log file (resource_usage.log).
+
+Logs column headers (Timestamp | CPU (%) | Memory (%)).
+
+Infinite loop (while true):
+
+Fetches current timestamp (date command).
+
+Fetches CPU usage using top and awk.
+
+Fetches Memory usage using free and awk.
+
+Appends the data to resource_usage.log.
+
+Waits for 5 seconds before repeating.
+
+Steps to Run the Script:
+Create a script and copy the above script there:
+
+nano monitor_resources.sh
+
+Make it executable:
+
+chmod +x monitor_resources.sh
+
+Run the script in the background:
+
+nohup ./monitor_resources.sh &
+
+nohup → Keeps the script running even if you log out.
+
+& → Runs it in the background.
+
+Challenge 7: Write a script that automatically deletes log files older than 7 days from /var/log.
+
+#clean_old_logs.sh
+#!/bin/bash
+
+# Define log directory
+LOG_DIR="/var/log"
+
+# Define file age threshold (in days)
+DAYS=7
+
+# Find and delete log files older than 7 days
+find "$LOG_DIR" -type f -name "*.log" -mtime +$DAYS -exec rm -f {} \;
+
+# Print success message
+echo "✅ Deleted log files older than $DAYS days from $LOG_DIR."
+Explanation:
+
+Defines the log directory (/var/log).
+
+Defines the threshold (DAYS=7) for old logs.
+
+Finds and deletes old logs using find:
+
+-type f → Selects only files.
+
+-name "*.log" → Matches only .log files.
+
+-mtime +7 → Files older than 7 days.
+
+-exec rm -f {} \; → Deletes the found files.
+
+Steps to run:
+
+create file:
+
+nano clean_old_logs.sh
+
+Make it executable:
+
+chmod +x clean_old_logs.sh
+
+Run the script:
+
+sudo ./clean_old_logs.sh
+
 
