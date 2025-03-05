@@ -1,0 +1,93 @@
+Challenge 1: Fork and Clone an Open-Source Project
+1.	Go to the open-source project repository on GitHub.
+2.	Fork the project by clicking on the "Fork" button in the top-right corner of the project page.
+3.	After forking, copy the repository's URL (HTTPS or SSH).
+4.	Open VSCode, and open the terminal (Ctrl + ).
+5.	Clone the repository using the command: 
+6.	git clone https://github.com/your-username/repository-name.git
+7.	Open the cloned project in VSCode.
+
+Challenge 2: Create a New Branch (feature-branch), Switch, and Commit Changes
+1.	Open your project in VSCode and make sure you're in the project folder.
+2.	Open the terminal in VSCode and create a new branch: 
+3.	git checkout -b feature-branch
+4.	Make changes to the project (edit files, add new ones, etc.).
+5.	Stage the changes: 
+6.	git add .
+7.	Commit the changes: 
+8.	git commit -m "Added new feature to the project"
+
+Challenge 3: Merge feature-branch into main and Push the Changes
+1.	First, switch back to the main branch: 
+2.	git checkout main
+3.	Merge the feature-branch into main: 
+4.	git merge feature-branch
+5.	Push the changes to your GitHub repository: 
+6.	git push origin main
+
+Challenge 4: Use git reset or git revert to Undo a Commit
+•	To undo a commit using git reset: 
+1.	To reset the commit (and keep changes in the working directory): 
+2.	git reset --soft HEAD~1
+3.	To reset and discard changes (hard reset): 
+4.	git reset --hard HEAD~1
+•	To undo a commit using git revert (creates a new commit to undo the changes): 
+•	git revert <commit-hash>
+This will open your editor to finalize the commit message for the revert.
+
+Challenge 5: Rebase feature-branch onto main and Understand the Difference
+1.	First, ensure you're on the feature-branch: 
+2.	git checkout feature-branch
+3.	Rebase your branch onto main: 
+4.	git fetch origin
+5.	git rebase origin/main
+6.	Resolve any conflicts if they appear during the rebase.
+7.	Once the rebase is complete, push the changes: 
+8.	git push origin feature-branch --force
+Difference between Rebase and Merge:
+•	Rebase rewrites history by applying the changes from one branch on top of another, making it seem as though the feature was developed from the latest commit on the main branch.
+•	Merge creates a new merge commit that combines the changes from the two branches.
+
+Challenge 6: Create a PR on GitHub from a Feature Branch
+1.	Push your feature-branch to your GitHub repository (if not done yet): 
+2.	git push origin feature-branch
+3.	Go to GitHub and navigate to the "Pull Requests" section.
+4.	Click "New Pull Request."
+5.	Select main as the base branch and feature-branch as the compare branch.
+6.	Create the pull request (PR) by clicking the "Create Pull Request" button.
+
+Challenge 7: Create Conflicting Changes in Different Branches and Resolve Them
+1.	Make conflicting changes in two different branches. For example: 
+o	On feature-branch, change line 10 in index.html.
+o	On main, change the same line (line 10).
+2.	Merge feature-branch into main: 
+3.	git checkout main
+4.	git merge feature-branch
+5.	Git will show a conflict. Open the conflicting file, resolve the conflict manually, and then mark it as resolved: 
+6.	git add <filename>
+7.	git commit
+
+Challenge 8: git stash to Save and Restore Uncommitted Changes
+1.	To stash uncommitted changes: 
+2.	git stash
+3.	To list stashed changes: 
+4.	git stash list
+5.	To apply the most recent stash: 
+6.	git stash apply
+
+Challenge 9: Add Version Tags to Commits and Push Them
+1.	To create a new version tag: 
+2.	git tag v1.0.0
+3.	To push the tag to GitHub: 
+4.	git push origin v1.0.0
+
+Challenge 10: Use git commit --amend and git rebase -i to Edit Past Commits
+•	git commit --amend: 
+1.	Amend the most recent commit: 
+2.	git commit --amend
+3.	This opens the editor, allowing you to change the commit message or even add files to the previous commit.
+•	git rebase -i: 
+1.	To rebase interactively: 
+2.	git rebase -i HEAD~3
+3.	This allows you to modify, reorder, or squash commits from the last three commits.
+
