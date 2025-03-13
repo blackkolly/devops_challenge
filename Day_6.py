@@ -129,6 +129,104 @@ server {
         proxy_pass http://127.0.0.1:8000;
     }
 }
+Challenge 7: Write a Python program to parse log files and extract failed SSH login attempts.
+
+import re
+
+def extract_failed_logins(log_file):
+    failed_attempts = []
+    with open(log_file, 'r') as file:
+        for line in file:
+            if 'Failed password' in line:
+                failed_attempts.append(line)
+    return failed_attempts
+
+# Example usage
+failed_logins = extract_failed_logins('/var/log/auth.log')
+for attempt in failed_logins:
+    print(attempt)
+
+Challenge 8: Use fabric or paramiko to automate SSH login and run commands on multiple servers.
+
+from fabric import Connection
+
+def execute_commands_on_servers(servers, command):
+    for server in servers:
+        conn = Connection(host=server['hostname'], user=server['username'], connect_kwargs={"password": server['password']})
+        result = conn.run(command, hide=True)
+        print(f"Output from {server['hostname']}:\n{result.stdout}")
+
+# Example usage
+servers = [
+    {'hostname': 'server1.com', 'username': 'user1', 'password': 'pass1'},
+    {'hostname': 'server2.com', 'username': 'user2', 'password': 'pass2'}
+]
+execute_commands_on_servers(servers, 'uptime')
+
+Challenge 9: Implement a Python script that monitors Docker containers and sends alerts if a container crashes.
+
+import docker
+from smtplib import SMTP
+
+client = docker.from_env()
+
+def send_alert(container_name):
+    with SMTP('smtp.example.com') as smtp:
+        smtp.login('user', 'password')
+        message = f"Subject: Alert\n\nThe container {container_name} has crashed!"
+        smtp.sendmail('from@example.com', 'to@example.com', message)
+
+def monitor_containers():
+    for container in client.containers.list(all=True):
+        if container.status == 'exited':
+            send_alert(container.name)
+
+monitor_containers()
+
+Challenge 10: Write a Python program that checks a GitHub repository for new commits and triggers a build job.
+
+import requests
+import subprocess
+
+def check_commits():
+    repo_url = "https://api.github.com/repos/user/repo/commits"
+    response = requests.get(repo_url)
+    latest_commit = response.json()[0]['sha']
+
+    with open("last_commit.txt", "r") as file:
+        last_commit = file.read().strip()
+
+    if latest_commit != last_commit:
+        subprocess.run(["./build_job.sh"])
+        with open("last_commit.txt", "w") as file:
+            file.write(latest_commit)
+
+check_commits()
+
+Challenge 11: Package your Python script as a CLI tool using argparse and click.
+
+import argparse
+
+def main():
+    parser = argparse.ArgumentParser(description="A CLI tool")
+    parser.add_argument('--greet', type=str, help="Name to greet")
+    args = parser.parse_args()
+
+    if args.greet:
+        print(f"Hello, {args.greet}!")
+
+if __name__ == "__main__":
+    main()
+
+Challenge 12: Use any Python binary package builder like PyInstaller, Nuitka, Cython, PyOxidizer to make code hard to reverse engineer and distributable.
+
+# Install PyInstaller
+pip install pyinstaller
+
+# Package the script
+pyinstaller --onefile your_script.py
+
+This will create an executable that can be run without needing to install Python.
 
 
 
