@@ -264,7 +264,169 @@ These are excellent challenges that focus on different aspects of AWS RDS (Relat
      ```bash
      aws rds describe-db-snapshots --db-instance-identifier <db-instance-id>
      ```
+🔹 Challenge 11: Host a Python app in EC2 with DB (MySQL) in RDS
 
----
+### Step 1: Deploy a Simple Flask App on EC2
+1. **Launch an EC2 Instance:**
+   - Go to the AWS EC2 dashboard and launch a new instance.
+   - Select the Amazon Linux 2 AMI or any other preferred OS.
+   - Choose an instance type (e.g., `t2.micro` if you're using the free tier).
+   - Configure security groups to allow inbound traffic on port `22` (for SSH) and port `80` (for HTTP).
+   - Generate a new key pair to access your instance and download it.
+
+2. SSH into Your EC2 Instance:
+   - Open a terminal and use the SSH command to access your EC2 instance:
+     ```bash
+     ssh -i /path/to/your-key.pem ec2-user@<your-ec2-public-ip>
+     ```
+
+3. Install Required Dependencies:
+   - Update the instance and install necessary tools (Python, Flask, pip, etc.):
+     ```bash
+     sudo yum update -y
+     sudo yum install python3 -y
+     sudo yum install git -y
+     sudo yum install gcc python3-dev -y
+     ```
+
+4. Create a Flask Application:
+   - Create a simple Flask app that displays a "Hello World" message.
+     ```bash
+     mkdir myflaskapp
+     cd myflaskapp
+     python3 -m venv venv
+     source venv/bin/activate
+     pip install flask
+     ```
+
+   - Create a `app.py` file:
+     ```python
+     from flask import Flask
+     app = Flask(__name__)
+
+     @app.route('/')
+     def hello_world():
+         return 'Hello World from EC2 and Flask!'
+
+     if __name__ == '__main__':
+         app.run(host='0.0.0.0', port=80)
+     ```
+
+5. Run the Flask App:
+   - Run your Flask app on EC2:
+     ```bash
+     python app.py
+     ```
+
+6. Test the Flask App:
+   - Open your web browser and go to your EC2 instance’s public IP (e.g., `http://<your-ec2-public-ip>`). You should see the "Hello World" message.
+
+### Step 2: Store App Data in Amazon RDS (MySQL)
+1. **Create an RDS Instance:**
+   - Go to the AWS RDS dashboard and click **Create database.
+   - Choose MySQL as the database engine.
+   - Select the version and instance size (e.g., `db.t2.micro` for the free tier).
+   - Set up the master username, password, and DB name (e.g., `flaskdb`).
+   - In the "Connectivity" section, make sure the VPC, subnet, and security groups are configured to allow access from your EC2 instance.
+
+2. Connect EC2 to RDS:
+   - Make sure your EC2 instance can connect to the RDS instance by modifying the security group rules to allow inbound MySQL traffic on port 3306.
+   - Install `mysql` client on your EC2 instance:
+     ```bash
+     sudo yum install mysql -y
+     ```
+   - Test the connection from EC2 to RDS:
+     ```bash
+     mysql -h <your-rds-endpoint> -u <your-username> -p
+     ```
+
+3. **Configure Flask to Use RDS:**
+   - Install MySQL client libraries for Python:
+     ```bash
+     pip install mysql-connector
+     ```
+   - Modify the `app.py` to connect to MySQL and store data:
+     ```python
+     import mysql.connector
+     from flask import Flask, request
+
+     app = Flask(__name__)
+
+     def get_db_connection():
+         conn = mysql.connector.connect(
+             host='<your-rds-endpoint>',
+             user='<your-username>',
+             password='<your-password>',
+             database='<your-database>'
+         )
+         return conn
+
+     @app.route('/')
+     def hello_world():
+         return 'Hello World from EC2 and Flask!'
+
+     @app.route('/add_user', methods=['POST'])
+     def add_user():
+         name = request.form['name']
+         conn = get_db_connection()
+         cursor = conn.cursor()
+         cursor.execute('INSERT INTO users (name) VALUES (%s)', (name,))
+         conn.commit()
+         cursor.close()
+         conn.close()
+         return f'User {name} added to the database!'
+
+     if __name__ == '__main__':
+         app.run(host='0.0.0.0', port=80)
+     ```
+
+### Step 3: Configure CloudWatch Alarms for Database Health
+1. Create a CloudWatch Alarm for RDS:
+   - Go to the **CloudWatch** dashboard in AWS.
+   - Navigate to Alarms > Create Alarm.
+   - Choose the metric `RDS > Per-Database Metrics > DBInstance > CPUUtilization` or any other relevant metric for your database.
+   - Set the threshold (e.g., CPU utilization over 90% for 5 minutes) to trigger the alarm.
+   - Choose an action, such as sending an SNS notification.
+
+2. Verify Alarm Configuration:
+   - Once the alarm is set, check CloudWatch to see if it triggers correctly under the alarm conditions.
+
+### Step 4: Schedule a Snapshot and Demonstrate Recovery
+1. Create an RDS Snapshot:
+   - In the **RDS** dashboard, select your RDS instance.
+   - Choose **Actions** > **Take Snapshot** to create a manual backup.
+
+2. Restore the Snapshot:
+   - To simulate recovery, restore the snapshot by selecting Actions > Restore Snapshot and choose the appropriate options.
+
+3. Verify Database Recovery:
+   - After restoring, verify that the data is intact and the database is operational.
+
+### Step 5: Document and Push to GitHub
+1. Create a Git Repository:**
+   - In the `myflaskapp` directory, initialize a Git repository:
+     ```bash
+     git init
+     git add .
+     git commit -m "Initial commit for Flask app with RDS"
+     ```
+
+2. Push to GitHub:
+   - Create a new repository on GitHub.
+   - Add the remote and push your changes:
+     ```bash
+     git remote add origin https://github.com/your-username/repository-name.git
+     git push -u origin master
+     ```
+
+3. Document the Process:
+   - In the GitHub repository, create a `README.md` file to document the entire process, including:
+     - EC2 setup
+     - Flask app creation
+     - RDS database setup
+     - CloudWatch alarm configuration
+     - Snapshot and recovery demonstration
+
+
 
 
