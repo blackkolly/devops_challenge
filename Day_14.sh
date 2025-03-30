@@ -1,3 +1,30 @@
+🔥 Challenges
+
+🔹 Challenge 1: Set up an IAM Role to allow EC2 to upload logs to S3
+🔹 Challenge 2: Modify an EBS Volume size and verify that it expands without rebooting the instance.
+🔹 Challenge 3: Manually attach an Elastic IP (EIP) to your running EC2 instance.
+🔹 Challenge 4: Enable CloudWatch Monitoring on your EC2 instance and view its CPU utilization logs.
+🔹 Challenge 5: Set up an Auto Scaling Group (ASG) that automatically adds or removes instances based on traffic.
+🔹Challenge 6: Use AWS Systems Manager (SSM) Session Manager to connect to an EC2 instance without SSH keys
+🔹 Challenge 7: Install Apache and Deploy a WordPress Site on one EC2 instance accessible on port 80 and install MYSQL on another instance, allow the security group of MySQL EC2 instance to accept traffic on specific MySQL port 3306 from the WordPress instance only, and Store web server logs in an S3 bucket
+🔹 Challenge 8: Create AMI from WordPress Instance and Snap Shot from MySQL Instance Volume as a backup
+
+Scenario Based:
+🔹 Challenge 9:
+Your company found AWS account bills getting too high, and asked you to install an Opensource FinOps Tool called OpenOps in an EC2 instance and find out different ways to save cloud bills.
+Follow these instructions from this article and do the below:
+
+Launch an EC2 instance and configure security groups.
+
+Install Docker and Docker Compose on the EC2 instance.
+
+Install and Configure Open-Ops
+
+Set up AWS Workflows.
+
+
+
+
 These are some excellent challenges to help you master key AWS services and skills. Let’s go through each one step by step to clarify what needs to be done for each:
 
 ### 🔹 Challenge 1: Set up an IAM Role to allow EC2 to upload logs to S3
@@ -107,4 +134,124 @@ These are some excellent challenges to help you master key AWS services and skil
 
 3.Automate Backups (Optional):
    - Consider setting up an automated backup solution with CloudWatch Events or Lambda to regularly back up your WordPress AMI and MySQL snapshots.
+Here’s a step-by-step guide to completing **Challenge 9** and setting up OpenOps on an AWS EC2 instance for FinOps optimization:
+
+🔹 Challenge 9:
+Your company found AWS account bills getting too high, and asked you to install an Opensource FinOps Tool called OpenOps in an EC2 instance and find out different ways to save cloud bills.
+Follow these instructions from this article and do the below:
+
+Launch an EC2 instance and configure security groups.
+
+Install Docker and Docker Compose on the EC2 instance.
+
+Install and Configure Open-Ops
+
+Set up AWS Workflows.
+
+
+## **Step 1: Launch an EC2 Instance and Configure Security Groups**  
+
+1. **Login to AWS Console** and navigate to **EC2**.
+2. Click **Launch Instance** and configure:
+   - **AMI**: Choose **Amazon Linux 2** or **Ubuntu 22.04**.
+   - **Instance Type**: At least **t3.medium** (recommended).
+   - **Key Pair**: Create or use an existing key pair for SSH access.
+   - **Storage**: Keep the default **8GB** or increase if needed.
+   - **Security Group**: Configure:
+     - **SSH (22)** → Your IP  
+     - **HTTP (80)** → Anywhere  
+     - **HTTPS (443)** → Anywhere  
+     - **Custom Port (3000, 8000, 8080)** → Anywhere (For OpenOps UI)
+
+3. Click **Launch** and connect to your instance via SSH:  
+   ```bash
+   ssh -i your-key.pem ec2-user@your-ec2-public-ip
+   ```
+
+---
+
+## **Step 2: Install Docker and Docker Compose**
+1. **Update System Packages**:
+   ```bash
+   sudo yum update -y  # Amazon Linux
+   sudo apt update && sudo apt upgrade -y  # Ubuntu
+   ```
+2. **Install Docker**:
+   ```bash
+   sudo yum install -y docker  # Amazon Linux
+   sudo apt install -y docker.io  # Ubuntu
+   ```
+   - Start and enable Docker:
+     ```bash
+     sudo systemctl start docker
+     sudo systemctl enable docker
+     ```
+   - Verify Docker installation:
+     ```bash
+     docker --version
+     ```
+3. **Install Docker Compose**:
+   ```bash
+   sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+   sudo chmod +x /usr/local/bin/docker-compose
+   docker-compose --version
+   ```
+
+---
+
+## **Step 3: Install and Configure OpenOps**
+# create and change directory
+mkdir -p openops && cd openops
+# download the release file
+curl -OL https://github.com/openops-cloud/openops/releases/download/0.2.2/openops-dc-0.2.2.zip
+# refresh package lists
+sudo apt update
+# install unzip
+sudo yum install unzip    
+# decompress release file
+unzip openops-dc-0.2.2.zip
+# copy the defaults to env without overwriting existing files
+cp -n .env.defaults .env
+
+# find IP address
+ip -o -4 addr show | awk '{print $2, $4}'
+
+# edit .env file. You can use any other console text editor such as vim.
+vi .env
+
+## **Step 4: Set Up AWS Workflows in OpenOps**
+1. **Create an AWS IAM User for OpenOps**:
+   - Go to **AWS IAM** → **Users** → **Create User** (e.g., `openops-user`).
+   - Attach **Read-Only Access** to AWS Billing:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Allow",
+           "Action": [
+             "ce:GetCostAndUsage",
+             "ce:GetCostForecast",
+             "ce:GetReservationCoverage",
+             "ce:GetReservationUtilization",
+             "ce:GetSavingsPlansUtilization",
+             "ec2:DescribeInstances"
+           ],
+           "Resource": "*"
+         }
+       ]
+     }
+     ```
+   - Copy **Access Key ID** and **Secret Access Key**.
+
+2. **Configure OpenOps with AWS Credentials**:
+   - In OpenOps UI, go to **Settings → AWS Integration**.
+   - Enter your **Access Key** and **Secret Key**.
+   - Enable **Cost and Usage Reports**.
+
+3. **Run Cost Analysis Reports**:
+   - Use OpenOps dashboards to analyze cost trends.
+   - Identify unused or underutilized resources.
+   - Get savings recommendations.
+
 
