@@ -1,0 +1,399 @@
+🔥 Challenges
+🔹 Challenge 1: Use a matrix to test across:
+
+3 versions of Node.js or Python
+
+2 OSs (ubuntu-latest, windows-latest)
+
+🔹 Challenge 2: Use needs: to create a pipeline like:
+
+build → test → deploy (conditionally run deploy if tests pass)
+
+🔹 Challenge 3: Use actions/cache@v3 to store build dependencies and speed up CI
+
+🔹 Challenge 4: Add workflow_dispatch inputs like environment: [dev, prod] and print them in the job
+
+🔹 Challenge 5: Add an if: condition to only run a deployment job on the main branch
+
+🔹 Challenge 6: Upload a build artifact in one job and download it in another
+
+🔹 Challenge 7: Create a reusable workflow called from another workflow using workflow_call
+
+🔹 Challenge 8: Define a protected environment with manual approval and use it in a deploy job
+
+🔹 Challenge 9: Use output from one job (e.g., version, build_hash) in the next job
+
+🔹 Challenge 10: Use a GitHub Action to build a Docker image, tag it, and push to Docker Hub
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - prod
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        node-version: [14.x, 16.x, 18.x]
+        python-version: ['3.8', '3.9', '3.10']
+        os: [ubuntu-latest, windows-latest]
+        exclude:
+          - os: windows-latest
+            python-version: '3.10'
+          - os: ubuntu-latest
+            node-version: 14.x
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          node_modules
+          **/__pycache__
+        key: ${{ runner.os }}-build-${{ hashFiles('**/package-lock.json', '**/requirements.txt') }}
+    
+    - name: Install dependencies
+      run: |
+        if [ -f package.json ]; then npm ci; fi
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    
+    - name: Build
+      run: |
+        echo "Running build steps..."
+        # Add your build commands here
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run tests
+      run: |
+        echo "Running tests..."
+        # Add your test commands here
+    
+    - name: Check test results
+      if: always()
+      run: |
+        echo "Tests completed with status: ${{ job.status }}"
+        if [ "${{ job.status }}" != "success" ]; then
+          echo "::warning::Some tests failed"
+        fi
+
+  deploy:
+    needs: test
+    if: ${{ github.ref == 'refs/heads/main' && needs.test.result == 'success' }}
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Print environment input
+      run: |
+        echo "Deploying to ${{ inputs.environment || github.event.inputs.environment }} environment"
+        # Add your deployment commands here
+      env:
+        ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment }}
+
+        Explanation:
+
+    Matrix Testing (Challenge 1):
+
+        Tests across 3 Node.js versions (14.x, 16.x, 18.x) and 3 Python versions (3.8, 3.9, 3.10)
+
+        Runs on both Ubuntu and Windows (with some exclusions to demonstrate matrix control)
+
+    Job Dependencies with needs (Challenge 2):
+
+        Pipeline flows: build → test → deploy
+
+        Each job only runs if the previous one succeeds
+
+    Caching Dependencies (Challenge 3):
+
+        Uses actions/cache@v3 to cache Node.js modules and Python cache
+
+        Cache key based on lock files for proper invalidation
+
+    Workflow Dispatch Inputs (Challenge 4):
+
+        Adds a dropdown input for environment (dev/prod)
+
+        Prints the selected environment in the deploy job
+
+    Conditional Deployment (Challenge 5):
+
+        Deploy job only runs on main branch (github.ref == 'refs/heads/main')
+
+        Also checks that tests passed (needs.test.result == 'success')
+
+        name: Advanced CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - prod
+  workflow_call:
+    inputs:
+      custom_param:
+        description: 'Custom parameter for reusable workflow'
+        required: false
+        type: string
+
+env:
+  DOCKER_HUB_REPO: my-docker-username/my-app
+  BUILD_VERSION: ${{ github.sha }}
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        node-version: [14.x, 16.x, 18.x]
+        python-version: ['3.8', '3.9', '3.10']
+        os: [ubuntu-latest, windows-latest]
+        exclude:
+          - os: windows-latest
+            python-version: '3.10'
+          - os: ubuntu-latest
+            node-version: 14.x
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          node_modules
+          **/__pycache__
+        key: ${{ runner.os }}-build-${{ hashFiles('**/package-lock.json', '**/requirements.txt') }}
+    
+    - name: Install dependencies
+      run: |
+        if [ -f package.json ]; then npm ci; fi
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    
+    - name: Build
+      run: |
+        echo "Running build steps..."
+        # Generate a build version (Challenge 9)
+        echo "BUILD_VERSION=$(date +%Y%m%d)-${{ github.sha }}" >> $GITHUB_ENV
+        mkdir -p dist
+        echo "sample build artifact" > dist/build_artifact.txt
+        
+    - name: Upload artifact (Challenge 6)
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-artifact
+        path: dist/
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Download artifact (Challenge 6)
+      uses: actions/download-artifact@v3
+      with:
+        name: build-artifact
+        path: dist/
+    
+    - name: Run tests
+      run: |
+        echo "Running tests with artifact:"
+        cat dist/build_artifact.txt
+        # Add your test commands here
+    
+    - name: Check test results
+      if: always()
+      run: |
+        echo "Tests completed with status: ${{ job.status }}"
+        if [ "${{ job.status }}" != "success" ]; then
+          echo "::warning::Some tests failed"
+        fi
+        echo "BUILD_HASH=${{ github.sha }}" >> $GITHUB_OUTPUT
+        echo "VERSION=${{ env.BUILD_VERSION }}" >> $GITHUB_OUTPUT
+
+  docker-build:
+    needs: test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Login to Docker Hub (Challenge 10)
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+    
+    - name: Build and push Docker image (Challenge 10)
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ env.DOCKER_HUB_REPO }}:latest
+          ${{ env.DOCKER_HUB_REPO }}:${{ needs.test.outputs.VERSION }}
+          ${{ env.DOCKER_HUB_REPO }}:${{ needs.test.outputs.BUILD_HASH }}
+    
+    outputs:
+      image-tag: ${{ steps.build.outputs.digest }}
+
+  reusable-workflow:
+    uses: ./.github/workflows/reusable-workflow.yml
+    with:
+      custom_param: "value-from-parent-workflow"
+    secrets: inherit
+
+  deploy:
+    needs: [test, docker-build]
+    if: ${{ github.ref == 'refs/heads/main' && needs.test.result == 'success' }}
+    runs-on: ubuntu-latest
+    environment: 
+      name: production
+      url: https://example.com
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Print outputs from test job (Challenge 9)
+      run: |
+        echo "Build version: ${{ needs.test.outputs.VERSION }}"
+        echo "Build hash: ${{ needs.test.outputs.BUILD_HASH }}"
+        echo "Docker image tag: ${{ needs.docker-build.outputs.image-tag }}"
+    
+    - name: Print environment input (Challenge 4)
+      run: |
+        echo "Deploying to ${{ inputs.environment || github.event.inputs.environment }} environment"
+        echo "Using reusable workflow param: ${{ inputs.custom_param || github.event.inputs.custom_param }}"
+      env:
+        ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment }}
+    
+    - name: Wait for manual approval (Challenge 8)
+      if: ${{ github.ref == 'refs/heads/main' }}
+      run: echo "Approved by ${{ github.actor }}"
+
+      And here's the accompanying reusable workflow file (Challenge 7) that should be saved at .github/workflows/reusable-workflow.yml:
+
+      name: Reusable Workflow
+
+on:
+  workflow_call:
+    inputs:
+      custom_param:
+        description: 'Custom parameter from caller'
+        required: false
+        type: string
+    secrets:
+      DOCKER_HUB_TOKEN:
+        required: true
+
+jobs:
+  reusable-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show input from caller
+        run: |
+          echo "Called from workflow: ${{ github.workflow }}"
+          echo "Custom parameter value: ${{ inputs.custom_param }}"
+          echo "Secret available: ${{ secrets.DOCKER_HUB_TOKEN != '' }}"
+
+          Key Features Explained:
+
+    Artifact Upload/Download (Challenge 6):
+
+        build job creates and uploads artifacts using actions/upload-artifact
+
+        test job downloads them with actions/download-artifact
+
+    Reusable Workflow (Challenge 7):
+
+        reusable-workflow job calls a separate workflow file
+
+        Demonstrates input passing and secret inheritance
+
+    Protected Environment (Challenge 8):
+
+        deploy job uses an environment called "production"
+
+        Requires manual approval in GitHub Environments settings
+
+        Shows approval message in logs
+
+    Job Outputs (Challenge 9):
+
+        test job sets outputs (BUILD_HASH and VERSION)
+
+        docker-build job consumes these outputs for image tagging
+
+        deploy job prints all collected outputs
+
+    Docker Build/Push (Challenge 10):
+
+        Logs into Docker Hub using secrets
+
+        Builds and pushes multiple image tags (latest, version, commit hash)
+
+        Uses Docker's official actions for secure operations
+
+To complete the setup:
+
+    Create a "production" environment in GitHub repo settings with required reviewers
+
+    Add Docker Hub credentials as repository secrets (DOCKER_HUB_USERNAME, DOCKER_HUB_TOKEN)
+
+    Ensure the reusable workflow file exists at the specified location
+        
