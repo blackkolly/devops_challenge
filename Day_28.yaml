@@ -1,0 +1,113 @@
+🔥 Challenges
+🔹 Challenge 1: Set up Kubernetes locally using Minikube or Kind
+🔹 Challenge 2: Use kubectl to list nodes, pods, and namespaces
+🔹 Challenge 3: Deploy a simple nginx or httpd container and expose it using a service
+🔹 Challenge 4: Open the Minikube dashboard and view your deployment
+🔹 Challenge 5: Port-forward a pod manually and access it in the browser
+
+🔹 Challenge 6: Create a new namespace (dev) and deploy an app there
+🔹 Challenge 7: Scale your deployment to 3 replicas
+
+🔹 Challenge 8: Add a label to your pods and query them with kubectl
+🔹 Challenge 9: Delete and recreate the deployment using a YAML manifest
+🔹 Challenge 10: Compare Minikube vs Kind in terms of speed, portability, and features
+
+Challenge 1: Set up Kubernetes locally using Minikube or Kind
+Minikube setup:
+
+# Install Minikube (Linux example)
+curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+sudo install minikube-linux-amd64 /usr/local/bin/minikube
+
+# Start Minikube cluster
+minikube start --driver=docker
+
+Kind setup:
+# Install Kind
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.11.1/kind-linux-amd64
+chmod +x ./kind
+sudo mv ./kind /usr/local/bin/kind
+
+# Create cluster
+kind create cluster
+
+Challenge 2: Use kubectl to list nodes, pods, and namespaces
+# List nodes
+kubectl get nodes
+
+# List pods in all namespaces
+kubectl get pods --all-namespaces
+
+# List namespaces
+kubectl get namespaces
+
+Challenge 3: Deploy a simple nginx or httpd container and expose it using a service
+# Create deployment
+kubectl create deployment nginx --image=nginx
+
+# Expose as service
+kubectl expose deployment nginx --port=80 --type=NodePort
+
+# Get service URL (Minikube specific)
+minikube service nginx --url
+Challenge 4: Open the Minikube dashboard and view your deployment
+minikube dashboard
+
+This will open the Kubernetes dashboard in your default browser.
+Challenge 5: Port-forward a pod manually and access it in the browser
+# Get pod name
+kubectl get pods
+
+# Port forward
+kubectl port-forward <pod-name> 8080:80
+
+Challenge 6: Create a new namespace (dev) and deploy an app there
+# Create namespace
+kubectl create namespace dev
+
+# Deploy nginx in dev namespace
+kubectl create deployment nginx-dev --image=nginx -n dev
+
+# Verify
+kubectl get pods -n dev
+Challenge 7: Scale your deployment to 3 replicas
+# Scale deployment
+kubectl scale deployment nginx --replicas=3
+
+# Verify
+kubectl get pods
+Challenge 8: Add a label to your pods and query them with kubectl
+# Add label to pods
+kubectl label pods -l app=nginx environment=production
+
+# Query pods with label
+kubectl get pods -l environment=production
+Challenge 9: Delete and recreate the deployment using a YAML manifest
+# Get current deployment as YAML
+kubectl get deployment nginx -o yaml > nginx-deployment.yaml
+
+# Delete deployment
+kubectl delete deployment nginx
+
+# Recreate from YAML
+kubectl apply -f nginx-deployment.yaml
+Challenge 10: Compare Minikube vs Kind
+Minikube:
+
+    Speed: Slower startup (1-2 minutes) as it creates a VM (unless using Docker driver)
+
+    Portability: Works across different platforms including bare metal
+
+    Features: More features like addons (dashboard, ingress, etc.), multi-node clusters
+
+    Use Case: Better for development environments needing full Kubernetes features
+
+Kind (Kubernetes in Docker):
+
+    Speed: Faster startup (30-60 seconds) as it runs in containers
+
+    Portability: Limited to Docker environments
+
+    Features: Simpler, lightweight, good for CI/CD pipelines
+
+    Use Case: Better for testing, CI, and scenarios where Docker is available
