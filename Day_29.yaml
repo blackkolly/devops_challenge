@@ -1,0 +1,63 @@
+🔥 Challenges
+🔹 Challenge 1: Create 3 namespaces: dev, staging, and prod
+
+🔹 Challenge 2: Switch between these namespaces using:
+
+kubectl config set-context --current --namespace=<name>
+
+🔹 Challenge 3: Deploy a nginx app in each namespace:
+
+nginx-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+nginx-service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP  # Change to LoadBalancer for external access on cloud
+Apply:
+
+kubectl apply -f nginx-deployment.yaml 
+kubectl apply -f nginx-service.yaml
+
+🔹 Challenge 4: Run kubectl get pods --all-namespaces and compare output
+
+🔹 Challenge 5: Delete one namespace and confirm it cleans up all resources inside
+
+🔹 Challenge 6: Create a Quota in one namespace to restrict resource usage
+🔹 Challenge 7: Use kubens to switch between namespaces more quickly
+🔹 Challenge 8: Define a namespace in a YAML manifest and apply it (e.g. like below: )
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backend
