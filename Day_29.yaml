@@ -70,3 +70,12 @@ Let's create the dev, staging, and prod namespaces:
 kubectl create namespace dev
 kubectl create namespace staging
 kubectl create namespace prod
+Verify the namespaces were created:
+bash
+Copy
+
+kubectl get namespaces
+
+Challenge 2: Switch between namespaces
+
+To switch between namespaces:
