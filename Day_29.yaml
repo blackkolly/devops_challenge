@@ -72,7 +72,7 @@ kubectl create namespace staging
 kubectl create namespace prod
 Verify the namespaces were created:
 bash
-Copy
+
 
 kubectl get namespaces
 
