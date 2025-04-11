@@ -61,3 +61,12 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: backend
+
+
+  Kubernetes Namespace Challenge Solution
+Challenge 1: Create 3 namespaces
+
+Let's create the dev, staging, and prod namespaces:
+kubectl create namespace dev
+kubectl create namespace staging
+kubectl create namespace prod
