@@ -71,7 +71,7 @@ kubectl create namespace dev
 kubectl create namespace staging
 kubectl create namespace prod
 Verify the namespaces were created:
-bash
+
 
 
 kubectl get namespaces
@@ -79,3 +79,104 @@ kubectl get namespaces
 Challenge 2: Switch between namespaces
 
 To switch between namespaces:
+To switch between namespaces:
+
+
+# Switch to dev namespace
+kubectl config set-context --current --namespace=dev
+
+# Switch to staging namespace
+kubectl config set-context --current --namespace=staging
+
+# Switch to prod namespace
+kubectl config set-context --current --namespace=prod
+
+Challenge 3: Deploy nginx in each namespace
+
+First, let's create the YAML files:
+nginx-deployment.yaml
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+
+nginx-service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
+
+Deploy to each namespace:
+
+    Dev namespace:
+
+
+kubectl config set-context --current --namespace=dev
+kubectl apply -f nginx-deployment.yaml
+kubectl apply -f nginx-service.yaml
+
+    Staging namespace:
+
+
+kubectl config set-context --current --namespace=staging
+kubectl apply -f nginx-deployment.yaml
+kubectl apply -f nginx-service.yaml
+
+    Prod namespace:
+
+
+kubectl config set-context --current --namespace=prod
+kubectl apply -f nginx-deployment.yaml
+kubectl apply -f nginx-service.yaml
+
+Verify deployments in each namespace:
+
+
+# Check dev
+kubectl config set-context --current --namespace=dev
+kubectl get deployments,services
+
+# Check staging
+kubectl config set-context --current --namespace=staging
+kubectl get deployments,services
+
+# Check prod
+kubectl config set-context --current --namespace=prod
+kubectl get deployments,services
+
+Alternative method (applying to specific namespace without switching):
+
+You can also apply resources to a specific namespace without switching contexts by using the -n flag:
+
+
+kubectl apply -f nginx-deployment.yaml -n dev
+kubectl apply -f nginx-service.yaml -n dev
+
