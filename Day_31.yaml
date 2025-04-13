@@ -1,0 +1,34 @@
+🔥 Challenges
+🔹 Challenge 1: Create a deployment with 3 replicas using YAML
+🔹 Challenge 2: Add labels and annotations to the deployment and query using kubectl
+🔹 Challenge 3: Scale the deployment to 5 pods and back to 2
+
+🔹 Challenge 4: Perform a rolling update by changing the image tag
+🔹 Challenge 5: Rollback to the previous revision
+
+🔹 Challenge 6: Add readiness and liveness probes to your deployment
+🔹 Challenge 7: Add resources.requests and limits to containers
+🔹 Challenge 8: Add revisionHistoryLimit: 2 and inspect revision history
+🔹 Challenge 9: Simulate a failed deployment (use a wrong image) and troubleshoot
+🔹 Challenge 10: Use kubectl rollout pause and resume to control update rollout
+
+
+🔹 Challenge 11: Final Challenge, Web App Deployment
+
+Build a deployment.yaml that:
+
+Deploys a node or nginx app
+
+Has 3 replicas
+
+Includes readiness and liveness probes
+
+Limits CPU to 250m and memory to 256Mi
+
+Has proper labels, annotations, and revisionHistoryLimit
+
+Uses RollingUpdate strategy with maxSurge and maxUnavailable defined
+
+📌 Apply with kubectl apply -f deployment.yaml and verify rollout
+📌 Break and rollback the deployment using kubectl set image and rollout undo
+
