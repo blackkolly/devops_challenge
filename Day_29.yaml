@@ -180,3 +180,90 @@ You can also apply resources to a specific namespace without switching contexts 
 kubectl apply -f nginx-deployment.yaml -n dev
 kubectl apply -f nginx-service.yaml -n dev
 
+Challenge 4: Get pods across all namespaces
+
+
+kubectl get pods --all-namespaces
+
+This will show output like:
+
+NAMESPACE     NAME                                READY   STATUS    RESTARTS   AGE
+dev          nginx-deployment-5c689d88bb-abcde    1/1     Running   0          10m
+dev          nginx-deployment-5c689d88bb-fghij    1/1     Running   0          10m
+staging      nginx-deployment-5c689d88bb-klmno    1/1     Running   0          9m
+staging      nginx-deployment-5c689d88bb-pqrst    1/1     Running   0          9m
+prod         nginx-deployment-5c689d88bb-uvwxy    1/1     Running   0          8m
+prod         nginx-deployment-5c689d88bb-zabcd    1/1     Running   0          8m
+kube-system  coredns-74ff55c5b-12345              1/1     Running   0          1h
+
+Comparison: Shows all pods cluster-wide, organized by namespace, including system pods in kube-system.
+Challenge 5: Delete a namespace and verify cleanup
+
+Let's delete the staging namespace:
+
+kubectl delete namespace staging
+
+# Verify deletion
+kubectl get namespaces
+kubectl get all -n staging  # Should show error
+
+Note: Deleting a namespace automatically deletes all resources within it (pods, services, deployments, etc.).
+Challenge 6: Create a ResourceQuota
+
+Create a quota for the dev namespace:
+
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: dev-quota
+  namespace: dev
+spec:
+  hard:
+    requests.cpu: "1"
+    requests.memory: 1Gi
+    limits.cpu: "2"
+    limits.memory: 2Gi
+    pods: "10"
+EOF
+
+kubectl describe resourcequota dev-quota -n dev
+
+Challenge 7: Use kubens for namespace switching
+
+First install kubens (part of kubectx):
+
+# On Linux
+sudo git clone https://github.com/ahmetb/kubectx /opt/kubectx
+sudo ln -s /opt/kubectx/kubens /usr/local/bin/kubens
+
+# On macOS
+brew install kubectx
+
+Usage:
+
+kubens  # List all namespaces
+kubens dev  # Switch to dev namespace
+kubens -  # Switch to previous namespace
+
+Challenge 8: Create namespace via YAML
+
+Create backend-namespace.yaml:
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backend
+
+Apply it:
+
+kubectl apply -f backend-namespace.yaml
+
+
+kubectl get namespace backend
+
+Alternative approach with kubectl:
+
+
+kubectl create namespace backend --dry-run=client -o yaml > backend-namespace.yaml
+
