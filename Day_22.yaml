@@ -5,6 +5,151 @@
 🔹 Challenge 4: Use when to run tasks only on certain operating systems
 🔹 Challenge 5: Use tags to categorize tasks (install, config, restart)
 
+SOLUTION
+---
+- name: System Administration Playbook
+  hosts: all
+  become: yes
+  
+  vars:
+    users_to_create:
+      - name: alice
+        uid: 1001
+        group: developers
+      - name: bob
+        uid: 1002
+        group: developers
+      - name: charlie
+        uid: 1003
+        group: admins
+
+  handlers:
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
+      listen: "nginx config changed"
+
+  tasks:
+    - name: Ensure groups exist
+      group:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - developers
+        - admins
+      tags: config
+
+    - name: Create multiple users
+      user:
+        name: "{{ item.name }}"
+        uid: "{{ item.uid }}"
+        group: "{{ item.group }}"
+        shell: /bin/bash
+        create_home: yes
+      loop: "{{ users_to_create }}"
+      tags: config
+
+    - name: Get system information
+      command: uname -a
+      register: system_info
+      changed_when: false
+      tags: debug
+
+    - name: Display system information
+      debug:
+        var: system_info.stdout
+      tags: debug
+
+    - name: Install Nginx (Debian)
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+      tags: install
+
+    - name: Install Nginx (RedHat)
+      yum:
+        name: nginx
+        state: present
+      when: ansible_os_family == "RedHat"
+      tags: install
+
+    - name: Configure Nginx
+      template:
+       src: "{{ playbook_dir }}/templates/nginx.conf.j2"  # Full path
+       dest: /etc/nginx/nginx.conf
+       owner: root
+       group: root
+       mode: '0644'
+     notify: "nginx config changed"
+     tags: config
+
+    - name: Ensure Nginx is running
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+      tags: restart
+
+1. Save the Playbook
+
+Save the playbook content to a file, e.g., system_admin.yml.
+vi system_admin.yml
+
+(Paste the playbook content, save, and exit.)
+2. Verify Ansible Inventory
+
+Ensure you have an inventory file (hosts or inventory.ini) with the target hosts.
+(inventory.ini):
+
+[webservers]
+server1 ansible_host=13.53.207.248
+server2 ansible_host=13.61.186.61
+server3 ansible_host=56.228.14.226
+server4 ansible_host=51.20.137.210
+server5 ansible_host=16.171.65.162
+
+[all:vars]
+ansible_user=ec2-user
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+
+Create the template directory and file:
+
+mkdir -p ~/templates
+nano ~/templates/nginx.conf.j2
+
+Paste this basic on nginx.conf.j2:
+
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log;
+pid /run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    server {
+        listen 80;
+        server_name {{ ansible_hostname }};
+        root /usr/share/nginx/html;
+        
+        location / {
+            try_files $uri $uri/ =404;
+        }
+    }
+}
+
+3. Run the Playbook
+ansible-playbook -i inventory.ini system_admin.yml
+
+
 🔹 Challenge 6: Refactor a playbook using include_tasks or import_tasks
 🔹 Challenge 7: Create a main.yml file and use vars_files to separate configuration
 🔹 Challenge 8: Set up a playbook that creates a user, installs a package, and starts a service — all in one run
@@ -27,124 +172,7 @@
 
 Here is a solution to each of the challenges you have outlined, using Ansible playbooks.
 
-### 🔹 Challenge 1: Write a playbook to create multiple system users using a loop
 
-```yaml
----
-- name: Create multiple system users using a loop
-  hosts: all
-  become: yes
-  tasks:
-    - name: Create users
-      user:
-        name: "{{ item }}"
-        state: present
-      loop:
-        - user1
-        - user2
-        - user3
-        - user4
-```
-
-### 🔹 Challenge 2: Add a debug task to print the output of `uname -a`
-
-```yaml
----
-- name: Add a debug task to print the output of uname -a
-  hosts: all
-  tasks:
-    - name: Run uname -a
-      command: uname -a
-      register: uname_output
-
-    - name: Debug output of uname -a
-      debug:
-        msg: "{{ uname_output.stdout }}"
-```
-
-### 🔹 Challenge 3: Create a handler that restarts Nginx if a config file is changed
-
-```yaml
----
-- name: Ensure Nginx is configured properly
-  hosts: all
-  become: yes
-  tasks:
-    - name: Copy Nginx config file
-      copy:
-        src: /path/to/nginx.conf
-        dest: /etc/nginx/nginx.conf
-      notify:
-        - Restart Nginx
-
-  handlers:
-    - name: Restart Nginx
-      service:
-        name: nginx
-        state: restarted
-```
-
-### 🔹 Challenge 4: Use `when` to run tasks only on certain operating systems
-
-```yaml
----
-- name: Run tasks only on specific OS
-  hosts: all
-  tasks:
-    - name: Install package for Debian-based OS
-      apt:
-        name: "{{ item }}"
-        state: present
-      when: ansible_facts['os_family'] == "Debian"
-      loop:
-        - package1
-        - package2
-
-    - name: Install package for RedHat-based OS
-      yum:
-        name: "{{ item }}"
-        state: present
-      when: ansible_facts['os_family'] == "RedHat"
-      loop:
-        - package1
-        - package2
-```
-
-### 🔹 Challenge 5: Use tags to categorize tasks (install, config, restart)
-
-```yaml
----
-- name: Categorize tasks with tags
-  hosts: all
-  tasks:
-    - name: Install package1
-      apt:
-        name: package1
-        state: present
-      tags:
-        - install
-
-    - name: Install package2
-      apt:
-        name: package2
-        state: present
-      tags:
-        - install
-
-    - name: Configure Nginx
-      template:
-        src: nginx.conf.j2
-        dest: /etc/nginx/nginx.conf
-      tags:
-        - config
-
-    - name: Restart Nginx
-      service:
-        name: nginx
-        state: restarted
-      tags:
-        - restart
-```
 
 These are great challenges for enhancing your Ansible skills! Here’s how you can approach them one by one:
 
