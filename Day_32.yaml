@@ -5,3 +5,10 @@
 
 🔹 Challenge 4: Perform a rolling update by changing the image tag
 🔹 Challenge 5: Rollback to the previous revision
+🔥 Challenges
+🔹 Challenge 1: Create a deployment with 3 replicas using YAML
+🔹 Challenge 2: Add labels and annotations to the deployment and query using kubectl
+🔹 Challenge 3: Scale the deployment to 5 pods and back to 2
+
+🔹 Challenge 4: Perform a rolling update by changing the image tag
+🔹 Challenge 5: Rollback to the previous revision
