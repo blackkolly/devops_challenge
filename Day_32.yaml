@@ -12,3 +12,133 @@
 
 🔹 Challenge 4: Perform a rolling update by changing the image tag
 🔹 Challenge 5: Rollback to the previous revision
+# Kubernetes Deployment Challenges
+
+## Challenge 1: Create a deployment with 3 replicas using YAML
+
+Here's a YAML file for a deployment with 3 replicas of an nginx container:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+```
+
+To create this deployment:
+```bash
+kubectl apply -f nginx-deployment.yaml
+```
+
+Verify the deployment:
+```bash
+kubectl get deployments
+kubectl get pods
+```
+
+## Challenge 2: Add labels and annotations to the deployment and query using kubectl
+
+Updated YAML with labels and annotations:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+    environment: dev
+    tier: frontend
+  annotations:
+    description: "NGINX web server deployment for development"
+    owner: "web-team"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+        version: "1.14.2"
+      annotations:
+        build-date: "2023-01-01"
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+```
+
+Apply the changes:
+```bash
+kubectl apply -f nginx-deployment.yaml
+```
+
+Query using kubectl:
+
+1. Get deployments with specific labels:
+```bash
+kubectl get deployments -l app=nginx
+kubectl get deployments -l environment=dev,tier=frontend
+```
+
+2. Get annotations:
+```bash
+kubectl describe deployment nginx-deployment | grep Annotations
+```
+
+3. Get pods with specific labels:
+```bash
+kubectl get pods -l app=nginx
+kubectl get pods -l version=1.14.2
+```
+
+## Challenge 3: Scale the deployment to 5 pods and back to 2
+
+Scale up to 5 replicas:
+```bash
+kubectl scale deployment nginx-deployment --replicas=5
+```
+
+Verify scaling:
+```bash
+kubectl get pods
+kubectl get deployment nginx-deployment
+```
+
+Scale down to 2 replicas:
+```bash
+kubectl scale deployment nginx-deployment --replicas=2
+```
+
+Verify scaling:
+```bash
+kubectl get pods
+kubectl get deployment nginx-deployment
+```
+
+Alternatively, you can edit the deployment directly:
+```bash
+kubectl edit deployment nginx-deployment
+```
+Then modify the `replicas` field and save.
