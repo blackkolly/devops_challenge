@@ -213,3 +213,31 @@ sh
 
 kubectl get pods -o wide
 kubectl describe pod <pod-name> | grep Image
+
+Challenge 5: Rollback to the Previous Revision
+
+Objective: Revert to the previous working version if the update causes issues.
+Steps:
+
+    Check rollout history:
+    sh
+
+kubectl rollout history deployment/<deployment-name>
+
+Rollback to the previous version:
+sh
+
+kubectl rollout undo deployment/<deployment-name>
+
+Rollback to a specific revision (optional):
+sh
+
+kubectl rollout undo deployment/<deployment-name> --to-revision=<revision-number>
+
+Verify rollback:
+sh
+
+    kubectl get pods
+    kubectl describe deployment <deployment-name> # Confirm the old image is restored
+
+✅ Done! The deployment returns to the previous stable state.
