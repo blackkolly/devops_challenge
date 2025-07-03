@@ -1,0 +1,672 @@
+🔥 Challenges
+🔹 Challenge 1: Write a playbook to create multiple system users using a loop
+🔹 Challenge 2: Add a debug task to print the output of uname -a
+🔹 Challenge 3: Create a handler that restarts Nginx if a config file is changed
+🔹 Challenge 4: Use when to run tasks only on certain operating systems
+🔹 Challenge 5: Use tags to categorize tasks (install, config, restart)
+
+SOLUTION
+---
+- name: System Administration Playbook
+  hosts: all
+  become: yes
+  
+  vars:
+    users_to_create:
+      - name: alice
+        uid: 1001
+        group: developers
+      - name: bob
+        uid: 1002
+        group: developers
+      - name: charlie
+        uid: 1003
+        group: admins
+
+  handlers:
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
+      listen: "nginx config changed"
+
+  tasks:
+    - name: Ensure groups exist
+      group:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - developers
+        - admins
+      tags: config
+
+    - name: Create multiple users
+      user:
+        name: "{{ item.name }}"
+        uid: "{{ item.uid }}"
+        group: "{{ item.group }}"
+        shell: /bin/bash
+        create_home: yes
+      loop: "{{ users_to_create }}"
+      tags: config
+
+    - name: Get system information
+      command: uname -a
+      register: system_info
+      changed_when: false
+      tags: debug
+
+    - name: Display system information
+      debug:
+        var: system_info.stdout
+      tags: debug
+
+    - name: Install Nginx (Debian)
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+      tags: install
+
+    - name: Install Nginx (RedHat)
+      yum:
+        name: nginx
+        state: present
+      when: ansible_os_family == "RedHat"
+      tags: install
+
+    - name: Configure Nginx
+      template:
+       src: "{{ playbook_dir }}/templates/nginx.conf.j2"  # Full path
+       dest: /etc/nginx/nginx.conf
+       owner: root
+       group: root
+       mode: '0644'
+     notify: "nginx config changed"
+     tags: config
+
+    - name: Ensure Nginx is running
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+      tags: restart
+
+1. Save the Playbook
+
+Save the playbook content to a file, e.g., system_admin.yml.
+vi system_admin.yml
+
+(Paste the playbook content, save, and exit.)
+2. Verify Ansible Inventory
+
+Ensure you have an inventory file (hosts or inventory.ini) with the target hosts.
+(inventory.ini):
+
+[webservers]
+server1 ansible_host=13.53.207.248
+server2 ansible_host=13.61.186.61
+server3 ansible_host=56.228.14.226
+server4 ansible_host=51.20.137.210
+server5 ansible_host=16.171.65.162
+
+[all:vars]
+ansible_user=ec2-user
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+
+Create the template directory and file:
+
+mkdir -p ~/templates
+nano ~/templates/nginx.conf.j2
+
+Paste this basic on nginx.conf.j2:
+
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log;
+pid /run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    server {
+        listen 80;
+        server_name {{ ansible_hostname }};
+        root /usr/share/nginx/html;
+        
+        location / {
+            try_files $uri $uri/ =404;
+        }
+    }
+}
+
+3. Run the Playbook
+ansible-playbook -i inventory.ini system_admin.yml
+
+
+🔹 Challenge 6: Refactor a playbook using include_tasks or import_tasks
+🔹 Challenge 7: Create a main.yml file and use vars_files to separate configuration
+🔹 Challenge 8: Set up a playbook that creates a user, installs a package, and starts a service — all in one run
+🔹 Challenge 9: Add a rescue block to handle command failure gracefully
+🔹 Challenge 10: Create a reusable playbook role structure manually (without ansible-galaxy)
+
+🔹 Challenge 11: Set up a cron job using Ansible to schedule a periodic backup script.
+
+🔹 Challenge 12: Write a playbook to deploy a web app with Git clone, package install, config setup, and service start.
+
+🔹 Challenge 13: Configure firewall rules using Ansible (e.g., UFW on Ubuntu or firewalld on CentOS).
+
+🔹 Challenge 14: Automate SSL certificate generation using Let’s Encrypt and deploy it to a web server.
+
+🔹 Challenge 15: Use Ansible to template configuration files with jinja2 and deploy them to remote hosts.
+
+🔹 Challenge 16: Deploy a multi-node application with dependencies (e.g., DB → App Server → Load Balancer).
+
+🔹 Challenge 17: Create an Ansible role that can be reused across projects (e.g., a “common” role for all base configurations).
+
+Here is a solution to each of the challenges you have outlined, using Ansible playbooks.
+
+
+
+These are great challenges for enhancing your Ansible skills! Here’s how you can approach them one by one:
+
+---
+
+### 🔹 Challenge 6: Refactor a playbook using `include_tasks` or `import_tasks`
+
+**Goal:** Refactor a playbook to break it down into smaller, reusable task files.
+
+```yaml
+# Original playbook (before refactoring)
+---
+- hosts: all
+  tasks:
+    - name: Install package
+      apt:
+        name: nginx
+        state: present
+    - name: Start service
+      service:
+        name: nginx
+        state: started
+```
+
+**Refactored version using `include_tasks`:**
+
+```yaml
+# main.yml
+---
+- hosts: all
+  tasks:
+    - include_tasks: tasks/install_nginx.yml
+    - include_tasks: tasks/start_nginx.yml
+```
+
+```yaml
+# tasks/install_nginx.yml
+---
+- name: Install package
+  apt:
+    name: nginx
+    state: present
+```
+
+```yaml
+# tasks/start_nginx.yml
+---
+- name: Start service
+  service:
+    name: nginx
+    state: started
+```
+
+In this example, the playbook is split into two separate task files: `install_nginx.yml` and `start_nginx.yml`, which makes the main playbook easier to maintain.
+
+---
+
+### 🔹 Challenge 7: Create a `main.yml` file and use `vars_files` to separate configuration
+
+**Goal:** Separate variable files from the main playbook.
+
+```yaml
+# main.yml
+---
+- hosts: all
+  vars_files:
+    - vars/config.yml
+  tasks:
+    - name: Install package
+      apt:
+        name: "{{ package_name }}"
+        state: present
+    - name: Start service
+      service:
+        name: "{{ service_name }}"
+        state: started
+```
+
+```yaml
+# vars/config.yml
+---
+package_name: nginx
+service_name: nginx
+```
+
+In this setup, variables are moved to a separate file `vars/config.yml`, and the main playbook `main.yml` refers to this file using `vars_files`. This helps in organizing and separating configuration from logic.
+
+---
+
+### 🔹 Challenge 8: Set up a playbook that creates a user, installs a package, and starts a service — all in one run
+
+```yaml
+# create_user_and_setup.yml
+---
+- hosts: all
+  tasks:
+    - name: Create a user
+      user:
+        name: johndoe
+        state: present
+        shell: /bin/bash
+
+    - name: Install package
+      apt:
+        name: nginx
+        state: present
+
+    - name: Start service
+      service:
+        name: nginx
+        state: started
+```
+
+This playbook creates a user named `johndoe`, installs the `nginx` package, and starts the `nginx` service, all in one execution.
+
+---
+
+### 🔹 Challenge 9: Add a rescue block to handle command failure gracefully
+
+```yaml
+# handle_failure.yml
+---
+- hosts: all
+  tasks:
+    - name: Try to install nginx
+      apt:
+        name: nginx
+        state: present
+      register: result
+      ignore_errors: yes
+
+    - name: Handle failure with rescue block
+      block:
+        - name: Notify failure
+          debug:
+            msg: "The installation of nginx failed!"
+      rescue:
+        - name: Print error message
+          debug:
+            msg: "Something went wrong, nginx installation failed!"
+```
+
+The `rescue` block allows you to handle task failures gracefully by notifying the user with a message.
+
+---
+
+### 🔹 Challenge 10: Create a reusable playbook role structure manually (without `ansible-galaxy`)
+
+**Goal:** Create a role structure manually.
+
+1. Create the following folder structure:
+
+```
+roles/
+└── myrole/
+    ├── tasks/
+    │   └── main.yml
+    ├── handlers/
+    │   └── main.yml
+    ├── defaults/
+    │   └── main.yml
+    ├── vars/
+    │   └── main.yml
+    ├── files/
+    └── templates/
+```
+
+2. **Define tasks in `roles/myrole/tasks/main.yml`:**
+
+```yaml
+# roles/myrole/tasks/main.yml
+---
+- name: Install nginx
+  apt:
+    name: nginx
+    state: present
+```
+
+3. **Create the playbook to call the role:**
+
+```yaml
+# playbook.yml
+---
+- hosts: all
+  roles:
+    - myrole
+```
+
+This structure allows you to maintain your playbooks in a modular, reusable way, even without using `ansible-galaxy`.
+
+---
+
+### 🔹 Challenge 11: Set up a cron job using Ansible to schedule a periodic backup script
+
+```yaml
+# setup_cron.yml
+---
+- hosts: all
+  tasks:
+    - name: Ensure backup cron job is present
+      cron:
+        name: "Backup Script"
+        minute: "0"
+        hour: "2"
+        job: "/usr/local/bin/backup.sh"
+        state: present
+```
+
+This playbook sets up a cron job that runs `/usr/local/bin/backup.sh` every day at 2:00 AM.
+
+---
+
+### 🔹 Challenge 12: Write a playbook to deploy a web app with Git clone, package install, config setup, and service start
+
+```yaml
+# deploy_web_app.yml
+---
+- hosts: web_servers
+  tasks:
+    - name: Clone the repository
+      git:
+        repo: "https://github.com/example/webapp.git"
+        dest: "/var/www/webapp"
+        version: "main"
+
+    - name: Install dependencies
+      apt:
+        name:
+          - python3
+          - python3-pip
+        state: present
+
+    - name: Install Python packages
+      pip:
+        name: requirements.txt
+        chdir: "/var/www/webapp"
+
+    - name: Configure web app
+      template:
+        src: "config.j2"
+        dest: "/var/www/webapp/config.py"
+
+    - name: Start the web app service
+      service:
+        name: webapp
+        state: started
+```
+Those are some great automation challenges you're tackling with Ansible! Let's break down each one of these challenges:
+
+---
+
+### 🔹 **Challenge 13: Configure firewall rules using Ansible (e.g., UFW on Ubuntu or firewalld on CentOS).**
+
+**Objective**: You need to manage firewall configurations using Ansible on different distributions of Linux (Ubuntu for UFW, CentOS for firewalld).
+
+**Example**:
+- **UFW on Ubuntu**:
+  You can use the `ufw` module in Ansible to configure UFW (Uncomplicated Firewall).
+
+  ```yaml
+  - name: Configure UFW rules
+    hosts: ubuntu
+    become: yes
+    tasks:
+      - name: Allow SSH
+        ufw:
+          rule: allow
+          name: OpenSSH
+
+      - name: Allow HTTP
+        ufw:
+          rule: allow
+          name: 'Apache'
+
+      - name: Enable UFW
+        ufw:
+          state: enabled
+  ```
+
+- **firewalld on CentOS**:
+  For CentOS, you’ll use the `firewalld` module.
+
+  ```yaml
+  - name: Configure firewalld rules
+    hosts: centos
+    become: yes
+    tasks:
+      - name: Allow HTTP service
+        firewalld:
+          service: http
+          permanent: yes
+          state: enabled
+
+      - name: Allow SSH service
+        firewalld:
+          service: ssh
+          permanent: yes
+          state: enabled
+
+      - name: Reload firewalld
+        firewalld:
+          state: reloaded
+  ```
+
+---
+
+### 🔹 **Challenge 14: Automate SSL certificate generation using Let’s Encrypt and deploy it to a web server.**
+
+**Objective**: Use Ansible to automate SSL certificate issuance from Let’s Encrypt and deploy it to a web server.
+
+**Example**:
+- Install the `certbot` package, generate the certificate, and configure your web server (e.g., Nginx or Apache).
+
+  ```yaml
+  - name: Automate SSL certificate generation with Let's Encrypt
+    hosts: web_servers
+    become: yes
+    tasks:
+      - name: Install certbot
+        apt:
+          name: certbot
+          state: present
+          update_cache: yes
+
+      - name: Generate SSL certificate
+        command: certbot certonly --standalone --non-interactive --agree-tos --email your-email@example.com -d yourdomain.com
+
+      - name: Deploy SSL certificate to Nginx
+        template:
+          src: nginx_ssl.conf.j2
+          dest: /etc/nginx/sites-available/default
+        notify:
+          - reload nginx
+
+  handlers:
+    - name: reload nginx
+      service:
+        name: nginx
+        state: reloaded
+  ```
+
+- The `nginx_ssl.conf.j2` template should reference the certificates generated by certbot and set them in your Nginx configuration.
+
+---
+
+### 🔹 **Challenge 15: Use Ansible to template configuration files with jinja2 and deploy them to remote hosts.**
+
+**Objective**: Leverage Ansible's templating capabilities to deploy configuration files using Jinja2.
+
+**Example**:
+- Suppose you're deploying a `nginx.conf` configuration file.
+
+  ```yaml
+  - name: Deploy Nginx configuration using Jinja2
+    hosts: web_servers
+    become: yes
+    vars:
+      server_name: "example.com"
+    tasks:
+      - name: Template nginx.conf file
+        template:
+          src: nginx.conf.j2
+          dest: /etc/nginx/nginx.conf
+        notify:
+          - reload nginx
+  ```
+
+- Example of a **Jinja2 template (`nginx.conf.j2`)**:
+  
+  ```jinja
+  server {
+      listen 80;
+      server_name {{ server_name }};
+      
+      location / {
+          root /var/www/html;
+          index index.html;
+      }
+  }
+  ```
+
+---
+
+### 🔹 **Challenge 16: Deploy a multi-node application with dependencies (e.g., DB → App Server → Load Balancer).**
+
+**Objective**: Use Ansible to deploy a multi-tier application where components have dependencies on each other.
+
+**Example**:
+- You may deploy a database, application server, and load balancer in the correct order, ensuring that dependencies are met.
+
+  ```yaml
+  - name: Deploy Multi-Node Application
+    hosts: db_server
+    become: yes
+    tasks:
+      - name: Install MySQL
+        apt:
+          name: mysql-server
+          state: present
+
+  - name: Deploy App Server
+    hosts: app_servers
+    become: yes
+    tasks:
+      - name: Install application packages
+        apt:
+          name: myapp
+          state: present
+
+      - name: Ensure app is running
+        service:
+          name: myapp
+          state: started
+
+  - name: Deploy Load Balancer
+    hosts: load_balancer
+    become: yes
+    tasks:
+      - name: Install HAProxy
+        apt:
+          name: haproxy
+          state: present
+
+      - name: Configure HAProxy load balancing
+        template:
+          src: haproxy.cfg.j2
+          dest: /etc/haproxy/haproxy.cfg
+        notify:
+          - restart haproxy
+
+  handlers:
+    - name: restart haproxy
+      service:
+        name: haproxy
+        state: restarted
+  ```
+
+---
+
+### 🔹 **Challenge 17: Create an Ansible role that can be reused across projects (e.g., a “common” role for all base configurations).**
+
+**Objective**: Organize your Ansible code into reusable roles to avoid redundancy and make your playbooks modular.
+
+**Example**:
+- Let's create a `common` role that installs and configures basic packages (e.g., NTP, SSH, and common utilities).
+
+**Directory structure for the `common` role**:
+```
+roles/
+  common/
+    tasks/
+      main.yml
+    defaults/
+      main.yml
+    handlers/
+      main.yml
+```
+
+- **main.yml (tasks)**:
+
+  ```yaml
+  ---
+  - name: Install common utilities
+    apt:
+      name:
+        - ntp
+        - vim
+        - curl
+      state: present
+
+  - name: Configure SSH for root login
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^PermitRootLogin'
+      line: 'PermitRootLogin yes'
+    notify:
+      - restart ssh
+  ```
+
+- **main.yml (handlers)**:
+
+  ```yaml
+  ---
+  - name: restart ssh
+    service:
+      name: ssh
+      state: restarted
+  ```
+
+- Now, in your playbook, you can reuse the `common` role.
+
+  ```yaml
+  - name: Configure common settings on all servers
+    hosts: all
+    roles:
+      - common
+  ```

@@ -1,0 +1,185 @@
+🔥 Challenges
+🔹 Challenge 1: Create a deployment with 3 replicas using YAML
+🔹 Challenge 2: Add labels and annotations to the deployment and query using kubectl
+🔹 Challenge 3: Scale the deployment to 5 pods and back to 2
+
+🔹 Challenge 4: Perform a rolling update by changing the image tag
+🔹 Challenge 5: Rollback to the previous revision
+
+🔹 Challenge 6: Add readiness and liveness probes to your deployment
+🔹 Challenge 7: Add resources.requests and limits to containers
+🔹 Challenge 8: Add revisionHistoryLimit: 2 and inspect revision history
+🔹 Challenge 9: Simulate a failed deployment (use a wrong image) and troubleshoot
+🔹 Challenge 10: Use kubectl rollout pause and resume to control update rollout
+
+
+🔹 Challenge 11: Final Challenge, Web App Deployment
+
+Build a deployment.yaml that:
+
+Deploys a node or nginx app
+
+Has 3 replicas
+
+Includes readiness and liveness probes
+
+Limits CPU to 250m and memory to 256Mi
+
+Has proper labels, annotations, and revisionHistoryLimit
+
+Uses RollingUpdate strategy with maxSurge and maxUnavailable defined
+
+📌 Apply with kubectl apply -f deployment.yaml and verify rollout
+📌 Break and rollback the deployment using kubectl set image and rollout undo
+
+Kubernetes Deployment Challenges Solutions
+Challenge 1: Create a deployment with 3 replicas using YAML
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+
+Apply with:
+
+kubectl apply -f deployment.yaml
+
+Challenge 2: Add labels and annotations to the deployment and query using kubectl
+
+Updated YAML:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    environment: production
+    team: web
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    description: "Production NGINX deployment"
+spec:
+  # ... rest of the spec from Challenge 1
+
+Query with:
+
+kubectl get deployments --show-labels
+kubectl get deployments -l environment=production
+kubectl describe deployment nginx-deployment  # shows annotations
+
+Challenge 3: Scale the deployment to 5 pods and back to 2
+
+# Scale up to 5
+kubectl scale deployment nginx-deployment --replicas=5
+
+# Scale down to 2
+kubectl scale deployment nginx-deployment --replicas=2
+
+Challenge 4: Perform a rolling update by changing the image tag
+
+kubectl set image deployment/nginx-deployment nginx=nginx:1.19.10
+
+Or update the YAML file and apply:
+# ... in the container spec
+image: nginx:1.19.10
+
+Challenge 5: Rollback to the previous revision
+
+# Check rollout history
+kubectl rollout history deployment/nginx-deployment
+
+# Rollback to previous version
+kubectl rollout undo deployment/nginx-deployment
+
+Challenge 6: Add readiness and liveness probes to your deployment
+
+containers:
+- name: nginx
+  image: nginx:1.19.10
+  ports:
+  - containerPort: 80
+  readinessProbe:
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 15
+    periodSeconds: 20
+
+Challenge 7: Add resources.requests and limits to containers
+containers:
+- name: nginx
+  image: nginx:1.19.10
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+Challenge 8: Add revisionHistoryLimit: 2 and inspect revision history
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  revisionHistoryLimit: 2
+  # ... rest of the spec
+
+Inspect history:
+
+kubectl rollout history deployment/nginx-deployment
+
+Challenge 9: Simulate a failed deployment (use a wrong image) and troubleshoot
+
+# Set invalid image
+kubectl set image deployment/nginx-deployment nginx=nginx:invalid-tag
+
+# Check rollout status
+kubectl rollout status deployment/nginx-deployment
+
+# Troubleshoot
+kubectl describe deployment nginx-deployment
+kubectl get pods
+kubectl logs <pod-name>
+kubectl describe pod <pod-name>
+
+# Fix by rolling back
+kubectl rollout undo deployment/nginx-deployment
+
+Challenge 10: Use kubectl rollout pause and resume to control update rollou
+
+# Pause the rollout
+kubectl rollout pause deployment/nginx-deployment
+
+# Make changes (won't trigger rollout)
+kubectl set image deployment/nginx-deployment nginx=nginx:1.21.0
+kubectl set resources deployment/nginx-deployment -c=nginx --limits=cpu=1,memory=1Gi
+
+# Resume the rollout
+kubectl rollout resume deployment/nginx-deployment
+
+These solutions cover all 10 Kubernetes deployment challenges, providing a comprehensive hands-on experience with deployments, scaling, updates, rollbacks, and troubleshooting.
+New chat
