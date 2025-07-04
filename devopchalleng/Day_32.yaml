@@ -1,0 +1,243 @@
+🔥 Challenges
+🔹 Challenge 1: Create a deployment with 3 replicas using YAML
+🔹 Challenge 2: Add labels and annotations to the deployment and query using kubectl
+🔹 Challenge 3: Scale the deployment to 5 pods and back to 2
+
+🔹 Challenge 4: Perform a rolling update by changing the image tag
+🔹 Challenge 5: Rollback to the previous revision
+🔥 Challenges
+🔹 Challenge 1: Create a deployment with 3 replicas using YAML
+🔹 Challenge 2: Add labels and annotations to the deployment and query using kubectl
+🔹 Challenge 3: Scale the deployment to 5 pods and back to 2
+
+🔹 Challenge 4: Perform a rolling update by changing the image tag
+🔹 Challenge 5: Rollback to the previous revision
+# Kubernetes Deployment Challenges
+
+## Challenge 1: Create a deployment with 3 replicas using YAML
+
+Here's a YAML file for a deployment with 3 replicas of an nginx container:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+```
+
+To create this deployment:
+```bash
+kubectl apply -f nginx-deployment.yaml
+```
+
+Verify the deployment:
+```bash
+kubectl get deployments
+kubectl get pods
+```
+
+## Challenge 2: Add labels and annotations to the deployment and query using kubectl
+
+Updated YAML with labels and annotations:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+    environment: dev
+    tier: frontend
+  annotations:
+    description: "NGINX web server deployment for development"
+    owner: "web-team"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+        version: "1.14.2"
+      annotations:
+        build-date: "2023-01-01"
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+```
+
+Apply the changes:
+```bash
+kubectl apply -f nginx-deployment.yaml
+```
+
+Query using kubectl:
+
+1. Get deployments with specific labels:
+```bash
+kubectl get deployments -l app=nginx
+kubectl get deployments -l environment=dev,tier=frontend
+```
+
+2. Get annotations:
+```bash
+kubectl describe deployment nginx-deployment | grep Annotations
+```
+
+3. Get pods with specific labels:
+```bash
+kubectl get pods -l app=nginx
+kubectl get pods -l version=1.14.2
+```
+
+## Challenge 3: Scale the deployment to 5 pods and back to 2
+
+Scale up to 5 replicas:
+```bash
+kubectl scale deployment nginx-deployment --replicas=5
+```
+
+Verify scaling:
+```bash
+kubectl get pods
+kubectl get deployment nginx-deployment
+```
+
+Scale down to 2 replicas:
+```bash
+kubectl scale deployment nginx-deployment --replicas=2
+```
+
+Verify scaling:
+```bash
+kubectl get pods
+kubectl get deployment nginx-deployment
+```
+
+Alternatively, you can edit the deployment directly:
+```bash
+kubectl edit deployment nginx-deployment
+```
+Then modify the `replicas` field and save.
+
+Challenge 4: Perform a Rolling Update by Changing the Image Tag
+
+Objective: Update the image tag of a deployed application using a rolling update strategy to ensure zero downtime.
+Steps:
+
+    Check Current Deployment:
+    First, verify the current deployment details, including the existing image tag.
+    sh
+
+kubectl get deployments
+kubectl describe deployment <deployment-name>
+
+Update the Image Tag:
+Use the kubectl set image command to update the image tag for the deployment.
+sh
+
+kubectl set image deployment/<deployment-name> <container-name>=<new-image>:<new-tag>
+
+Example:
+sh
+
+kubectl set image deployment/nginx-deployment nginx=nginx:1.19
+
+Monitor the Rolling Update:
+Watch the rollout status to ensure the update is progressing smoothly.
+sh
+
+kubectl rollout status deployment/<deployment-name>
+
+Verify the Update:
+Confirm that the pods are running with the new image tag.
+sh
+
+    kubectl get pods -o wide
+    kubectl describe pod <pod-name> | grep Image
+
+Challenge 5: Rollback to the Previous Revision
+
+Objective: Undo the recent update and revert to the previous working revision of the deployment.
+Steps:
+
+    Check Rollout History:
+    View the history of deployments to identify the revision to rollback to.
+    sh
+
+kubectl rollout history deployment/<deployment-name>
+
+Rollback to Previous Revision:
+Use the kubectl rollout undo command to revert to the previous version.
+sh
+
+kubectl rollout undo deployment/<deployment-name>
+
+Alternatively, specify a specific revision:
+sh
+
+kubectl rollout undo deployment/<deployment-name> --to-revision=<revision-number>
+
+Monitor the Rollback:
+Check the status of the rollback to ensure it completes successfully.
+sh
+
+kubectl rollout status deployment/<deployment-name>
+
+Verify the Rollback:
+Confirm that the pods are now running the previous image tag.
+sh
+
+kubectl get pods -o wide
+kubectl describe pod <pod-name> | grep Image
+
+Challenge 5: Rollback to the Previous Revision
+
+Objective: Revert to the previous working version if the update causes issues.
+Steps:
+
+    Check rollout history:
+    sh
+
+kubectl rollout history deployment/<deployment-name>
+
+Rollback to the previous version:
+sh
+
+kubectl rollout undo deployment/<deployment-name>
+
+Rollback to a specific revision (optional):
+sh
+
+kubectl rollout undo deployment/<deployment-name> --to-revision=<revision-number>
+
+Verify rollback:
+sh
+
+    kubectl get pods
+    kubectl describe deployment <deployment-name> # Confirm the old image is restored
+
+✅ Done! The deployment returns to the previous stable state.

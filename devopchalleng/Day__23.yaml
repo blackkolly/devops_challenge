@@ -1,0 +1,221 @@
+🔥 Challenges
+🔹 Challenge 1: Write a playbook to create multiple system users using a loop
+🔹 Challenge 2: Add a debug task to print the output of uname -a
+💡 Challenge 1: Create a secrets.yml file with an encrypted variable like admin_password
+💡 Challenge 2: Use that variable in a playbook to create a new user with the password
+💡 Challenge 3: Run the playbook using --ask-vault-pass and verify the user is created
+💡 Challenge 4: Try viewing the vault file using ansible-vault view secrets.yml
+💡 Challenge 5: Add the vault file to .gitignore to keep it out of version control
+
+💡 Challenge 6: Encrypt an existing vars.yml file using ansible-vault encrypt
+💡 Challenge 7: Use vault_password_file to run playbooks without prompt
+💡 Challenge 8: Create a multi-environment secrets setup (e.g., dev_secrets.yml, prod_secrets.yml)
+💡 Challenge 9: Use vault ID labels to manage different password files for different environments
+💡 Challenge 10: Store secrets encrypted with Vault inside a role's defaults/ or vars/ directory and use them securely
+
+
+# Ansible Challenges Solutions
+
+## 🔹 Challenge 1: Create multiple system users using a loop
+
+```yaml
+---
+- name: Create multiple system users
+  hosts: all
+  become: true
+  tasks:
+    - name: Create users
+      ansible.builtin.user:
+        name: "{{ item }}"
+        state: present
+        create_home: yes
+        shell: /bin/bash
+      loop:
+        - dev_user1
+        - dev_user2
+        - test_user1
+```
+
+## 🔹 Challenge 2: Add debug task to print uname -a output
+
+```yaml
+---
+- name: Debug system information
+  hosts: all
+  tasks:
+    - name: Get system info
+      ansible.builtin.command: uname -a
+      register: system_info
+
+    - name: Display system info
+      ansible.builtin.debug:
+        var: system_info.stdout
+```
+
+## 💡 Challenge 1: Create encrypted secrets.yml
+
+1. First create the vault file:
+```bash
+ansible-vault create secrets.yml
+```
+
+2. Add this content:
+```yaml
+admin_password: "MySuperSecretPassword123!"
+```
+
+## 💡 Challenge 2: Use the encrypted variable to create a user
+
+```yaml
+---
+- name: Create admin user with vault password
+  hosts: all
+  become: true
+  vars_files:
+    - secrets.yml
+  tasks:
+    - name: Create admin user
+      ansible.builtin.user:
+        name: secure_admin
+        password: "{{ admin_password | password_hash('sha512') }}"
+        state: present
+        shell: /bin/bash
+        groups: sudo
+        append: yes
+```
+
+## 💡 Challenge 3: Run the playbook with vault password
+
+```bash
+ansible-playbook create_admin.yml --ask-vault-pass
+```
+
+Verify the user was created:
+```bash
+ansible all -a "id secure_admin" -b
+```
+
+## 💡 Challenge 4: View the vault file
+
+```bash
+ansible-vault view secrets.yml
+```
+
+You'll be prompted for the vault password you set when creating the file.
+
+## 💡 Challenge 5: Add vault file to .gitignore
+
+```bash
+echo "secrets.yml" >> .gitignore
+echo "*.vault" >> .gitignore  # Also good practice for any vault files
+```
+
+Then verify it's ignored:
+```bash
+git status --ignored
+```
+Here are solutions for challenges 6-10:
+
+## 💡 Challenge 6: Encrypt an existing vars.yml file
+
+```bash
+# Encrypt an existing plaintext vars file
+ansible-vault encrypt vars.yml
+
+# You'll be prompted to set and confirm a vault password
+# To edit the encrypted file later:
+ansible-vault edit vars.yml
+```
+
+## 💡 Challenge 7: Use vault_password_file to avoid prompts
+
+1. Create a password file (make it secure!):
+```bash
+echo "my_vault_password" > ~/.vault_pass.txt
+chmod 600 ~/.vault_pass.txt
+```
+
+2. Run playbooks using:
+```bash
+ansible-playbook site.yml --vault-password-file ~/.vault_pass.txt
+
+# Alternatively, set in ansible.cfg:
+[defaults]
+vault_password_file = ~/.vault_pass.txt
+```
+
+## 💡 Challenge 8: Multi-environment secrets setup
+
+```bash
+# Create separate vault files for environments
+ansible-vault create dev_secrets.yml
+ansible-vault create prod_secrets.yml
+
+# Example dev_secrets.yml content:
+---
+db_password: "dev123"
+api_key: "dev_api_456"
+
+# Example prod_secrets.yml content:
+---
+db_password: "prodSecure789!"
+api_key: "prod_api_XYZ123"
+```
+
+## 💡 Challenge 9: Use vault ID labels for different environments
+
+1. Create separate password files:
+```bash
+echo "dev_password" > ~/.dev_vault_pass
+echo "prod_password" > ~/.prod_vault_pass
+chmod 600 ~/.dev_vault_pass ~/.prod_vault_pass
+```
+
+2. Encrypt files with different vault IDs:
+```bash
+ansible-vault encrypt --vault-id dev@~/.dev_vault_pass dev_secrets.yml
+ansible-vault encrypt --vault-id prod@~/.prod_vault_pass prod_secrets.yml
+```
+
+3. Run playbooks specifying the vault IDs:
+```bash
+ansible-playbook site.yml -e @dev_secrets.yml --vault-id dev@~/.dev_vault_pass
+```
+
+## 💡 Challenge 10: Secure secrets in roles
+
+1. Store encrypted variables in your role:
+```bash
+mkdir -p roles/myrole/vars
+ansible-vault encrypt roles/myrole/vars/secrets.yml
+```
+
+2. Example role structure:
+```
+myrole/
+  ├── defaults/
+  │   └── main.yml       # Unencrypted defaults
+  ├── vars/
+  │   └── secrets.yml    # Encrypted sensitive variables
+  └── tasks/
+      └── main.yml
+```
+
+3. In tasks/main.yml:
+```yaml
+- name: Use encrypted role variables
+  ansible.builtin.debug:
+    msg: "DB connection string: {{ db_user }}:{{ db_pass }}@{{ db_host }}"
+  # Variables are defined in vars/secrets.yml
+```
+
+4. Run the playbook:
+```bash
+ansible-playbook site.yml --vault-password-file ~/.vault_pass.txt
+```
+
+5. Best practices:
+- Never commit unencrypted secrets
+- Add all vault files to .gitignore
+- Use different vault passwords for different environments
+- Rotate vault passwords periodically

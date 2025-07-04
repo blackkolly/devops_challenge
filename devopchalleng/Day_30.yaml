@@ -1,0 +1,321 @@
+🔥 Challenges
+🔹 Challenge 1: Create a pod with nginx using a YAML manifest
+🔹 Challenge 2: Add labels (app=nginx, env=dev) and verify with label selector
+🔹 Challenge 3: Use kubectl logs and kubectl describe to inspect the pod
+🔹 Challenge 4: Exec into the pod and serve a custom index.html in nginx
+🔹 Challenge 5: Create a pod with a command override (sleep 500) and interact with it
+
+🔹 Challenge 6: Create a multi-container pod (e.g., nginx + busybox sidecar) that shares a volume
+🔹 Challenge 7: Add a readiness probe and simulate service readiness
+🔹 Challenge 8: Add an init container that runs before the main container starts
+🔹 Challenge 9: Add resource limits/requests to the pod and observe behavior under stress
+🔹 Challenge 10: Create a pod with an environment variable and print it inside the container
+🔹 Challenge 11: Advanced Pod Config with YAML
+
+Create a YAML manifest (advanced-pod.yaml) that:
+
+Has 2 containers (web server + logger)
+
+Uses a shared volume (emptyDir)
+
+Adds init container that preps content
+
+Defines a readiness probe on port 80
+
+Includes labels and resource limits
+
+Adds custom env vars
+
+📌 Apply it with kubectl apply -f advanced-pod.yaml
+📌 Inspect pod using kubectl describe, logs, and exec
+
+Kubernetes Pod Challenges Solutions
+Challenge 1: Create a pod with nginx using a YAML manifest
+
+# nginx-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+
+Apply the manifest:
+
+kubectl apply -f nginx-pod.yaml
+
+Challenge 2: Add labels (app=nginx, env=dev) and verify with label selector
+
+Update the YAML file:
+
+# nginx-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+  labels:
+    app: nginx
+    env: dev
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+
+Reapply the manifest:
+kubectl apply -f nginx-pod.yaml
+
+Verify labels:
+kubectl get pods --show-labels
+kubectl get pods -l app=nginx
+kubectl get pods -l env=dev
+
+Challenge 3: Use kubectl logs and kubectl describe to inspect the pod
+# Get pod logs
+kubectl logs nginx-pod
+
+# Describe the pod
+kubectl describe pod nginx-pod
+
+Challenge 4: Exec into the pod and serve a custom index.html in nginx
+
+# Exec into the pod
+kubectl exec -it nginx-pod -- /bin/bash
+
+# Inside the pod:
+echo "<h1>Welcome to My Custom Nginx Page</h1>" > /usr/share/nginx/html/index.html
+exit
+
+Verify the changes:
+kubectl port-forward nginx-pod 8080:80
+# Then open http://localhost:8080 in your browser
+
+Challenge 5: Create a pod with a command override (sleep 500) and interact with it
+
+# sleep-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sleep-pod
+spec:
+  containers:
+  - name: sleep-container
+    image: busybox:latest
+    command: ["/bin/sh", "-c"]
+    args: ["sleep 500"]
+
+Apply the manifest:
+
+kubectl apply -f sleep-pod.yaml
+
+Interact with the pod:
+
+# Exec into the pod
+kubectl exec -it sleep-pod -- /bin/sh
+
+# Inside the pod you can run commands like:
+date
+ps aux
+exit
+
+Check the pod status:
+
+kubectl get pod sleep-pod
+
+Challenge 6: Create a multi-container pod with shared volume
+
+# multi-container-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: multi-container-pod
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+    volumeMounts:
+    - name: shared-volume
+      mountPath: /usr/share/nginx/html
+  - name: busybox
+    image: busybox:latest
+    command: ["/bin/sh", "-c", "while true; do echo $(date) >> /shared/index.html; sleep 5; done"]
+    volumeMounts:
+    - name: shared-volume
+      mountPath: /shared
+  volumes:
+  - name: shared-volume
+    emptyDir: {}
+
+Challenge 7: Add a readiness probe and simulate service readiness
+
+# readiness-probe-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: readiness-probe-pod
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+    readinessProbe:
+      httpGet:
+        path: /
+        port: 80
+      initialDelaySeconds: 5
+      periodSeconds: 5
+
+To simulate readiness:
+
+kubectl exec readiness-probe-pod -- mv /usr/share/nginx/html/index.html /tmp/
+# Watch pod become unready
+kubectl exec readiness-probe-pod -- mv /tmp/index.html /usr/share/nginx/html/
+# Watch pod become ready again
+
+Challenge 8: Add an init container
+
+# init-container-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: init-container-pod
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+    volumeMounts:
+    - name: workdir
+      mountPath: /usr/share/nginx/html
+  initContainers:
+  - name: install
+    image: busybox:latest
+    command: ["/bin/sh", "-c", "echo '<h1>Initialized by init container</h1>' > /work-dir/index.html"]
+    volumeMounts:
+    - name: workdir
+      mountPath: "/work-dir"
+  volumes:
+  - name: workdir
+    emptyDir: {}
+
+Challenge 9: Add resource limits/requests
+
+# resource-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: resource-pod
+spec:
+  containers:
+  - name: stress-container
+    image: polinux/stress
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+    command: ["stress"]
+    args: ["--vm", "1", "--vm-bytes", "100M", "--vm-hang", "1"]
+
+To observe behavior:
+
+kubectl describe pod resource-pod
+kubectl top pod resource-pod
+
+Challenge 10: Pod with environment variable
+
+# env-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: env-pod
+spec:
+  containers:
+  - name: busybox
+    image: busybox:latest
+    command: ["/bin/sh", "-c", "echo $CUSTOM_ENV && sleep 3600"]
+    env:
+    - name: CUSTOM_ENV
+      value: "Hello from Kubernetes!"
+
+Challenge 11: Advanced Pod Config with YAML
+# advanced-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: advanced-pod
+  labels:
+    app: web-server
+    env: production
+    tier: frontend
+spec:
+  initContainers:
+  - name: content-prep
+    image: busybox:latest
+    command: ["/bin/sh", "-c"]
+    args:
+      - echo "<h1>Welcome to Advanced Pod</h1>" > /shared/index.html;
+        echo "Content prepared" > /shared/status.log;
+    volumeMounts:
+    - name: shared-data
+      mountPath: /shared
+    resources:
+      limits:
+        cpu: "100m"
+        memory: "50Mi"
+  containers:
+  - name: web-server
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+    volumeMounts:
+    - name: shared-data
+      mountPath: /usr/share/nginx/html
+    readinessProbe:
+      httpGet:
+        path: /
+        port: 80
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "100Mi"
+      limits:
+        cpu: "500m"
+        memory: "200Mi"
+    env:
+    - name: SERVER_NAME
+      value: "advanced-web-server"
+    - name: ENVIRONMENT
+      value: "production"
+  - name: logger
+    image: busybox:latest
+    command: ["/bin/sh", "-c"]
+    args:
+      - tail -f /shared/status.log
+    volumeMounts:
+    - name: shared-data
+      mountPath: /shared
+  volumes:
+  - name: shared-data
+    emptyDir: {}
+
+To apply and inspect:
+kubectl apply -f advanced-pod.yaml
+kubectl describe pod advanced-pod
+kubectl logs advanced-pod -c web-server
+kubectl logs advanced-pod -c logger
+kubectl exec -it advanced-pod -c web-server -- printenv
+
