@@ -1,0 +1,23 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: flask-app-pdb
+  namespace: flask-ecommerce
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: flask-ecommerce
+      component: backend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nginx-pdb
+  namespace: flask-ecommerce
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: flask-ecommerce
+      component: nginx

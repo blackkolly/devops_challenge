@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: flask-app-monitor
+  namespace: flask-ecommerce
+  labels:
+    app: flask-ecommerce
+spec:
+  selector:
+    matchLabels:
+      app: flask-ecommerce
+      component: backend
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: flask-app-alerts
+  namespace: flask-ecommerce
+  labels:
+    app: flask-ecommerce
+spec:
+  groups:
+  - name: flask-ecommerce.rules
+    rules:
+    - alert: FlaskAppDown
+      expr: up{job="flask-app-monitor"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Flask application is down"
+        description: "Flask application has been down for more than 1 minute"
+    
+    - alert: HighMemoryUsage
+      expr: container_memory_usage_bytes{pod=~"flask-app-deployment-.*"} / container_spec_memory_limit_bytes > 0.8
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High memory usage detected"
+        description: "Pod {{ $labels.pod }} memory usage is above 80%"
+    
+    - alert: HighCPUUsage
+      expr: rate(container_cpu_usage_seconds_total{pod=~"flask-app-deployment-.*"}[5m]) > 0.8
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High CPU usage detected"
+        description: "Pod {{ $labels.pod }} CPU usage is above 80%"

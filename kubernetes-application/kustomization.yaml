@@ -1,0 +1,72 @@
+# Kustomization for Flask E-Commerce Application
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: flask-ecommerce-app
+
+# Namespace for all resources
+namespace: flask-ecommerce
+
+# Common labels applied to all resources
+commonLabels:
+  app: flask-ecommerce
+  version: v1.0.0
+  environment: production
+
+# Resources to include
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - persistent-volume.yaml
+  - deployment.yaml
+  - nginx-deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - pod-disruption-budget.yaml
+  - rbac.yaml
+  - monitoring.yaml
+
+# Images to use
+images:
+  - name: flask-ecommerce
+    newTag: latest
+  - name: nginx
+    newTag: 1.21-alpine
+
+# ConfigMap generator for additional configs
+configMapGenerator:
+  - name: flask-app-env
+    literals:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=False
+      - LOG_LEVEL=INFO
+
+# Secret generator for runtime secrets
+secretGenerator:
+  - name: flask-runtime-secrets
+    literals:
+      - SECRET_KEY=placeholder-will-be-replaced
+
+# Patches for environment-specific customizations
+patchesStrategicMerge:
+  - patches/production-patches.yaml
+
+# JSON patches for specific modifications
+patchesJson6902:
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: flask-app-deployment
+    path: patches/resource-limits.yaml
+
+# Replicas for different environments
+replicas:
+  - name: flask-app-deployment
+    count: 3
+  - name: nginx-deployment
+    count: 2

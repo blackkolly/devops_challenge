@@ -1,0 +1,187 @@
+# Production values for Flask E-commerce Helm Chart
+# Override default values for production environment
+
+replicaCount: 5
+
+image:
+  repository: flask-ecommerce
+  pullPolicy: IfNotPresent
+  tag: "stable"
+
+# Production resource requirements
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Enhanced autoscaling for production
+autoscaling:
+  enabled: true
+  minReplicas: 5
+  maxReplicas: 50
+  targetCPUUtilizationPercentage: 60
+  targetMemoryUtilizationPercentage: 70
+
+# Production ingress configuration
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-west-2:123456789012:certificate/your-certificate-id"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+  hosts:
+    - host: flask-ecommerce.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: flask-ecommerce-tls
+      hosts:
+        - flask-ecommerce.yourdomain.com
+
+# Production persistence settings
+persistence:
+  enabled: true
+  storageClass: "gp3"
+  accessMode: ReadWriteOnce
+  size: 50Gi
+
+# Production database configuration
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "your-secure-postgres-password"
+    username: "flaskapp"
+    password: "your-secure-password"
+    database: "ecommerce_prod"
+  primary:
+    persistence:
+      enabled: true
+      size: 100Gi
+      storageClass: "gp3"
+    resources:
+      limits:
+        memory: 2Gi
+        cpu: 1000m
+      requests:
+        memory: 1Gi
+        cpu: 500m
+
+# Production Redis configuration
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: "your-secure-redis-password"
+  master:
+    persistence:
+      enabled: true
+      size: 20Gi
+      storageClass: "gp3"
+    resources:
+      limits:
+        memory: 1Gi
+        cpu: 500m
+      requests:
+        memory: 512Mi
+        cpu: 250m
+
+# Enhanced health checks for production
+healthCheck:
+  enabled: true
+  path: /health
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Production monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+    path: /metrics
+
+# Production security settings
+podSecurityContext:
+  fsGroup: 2000
+  runAsNonRoot: true
+  runAsUser: 1000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+
+# Production network policy
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: ingress-system
+      ports:
+      - protocol: TCP
+        port: 5000
+
+# Production affinity rules
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values:
+          - flask-ecommerce
+      topologyKey: kubernetes.io/hostname
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 1
+      preference:
+        matchExpressions:
+        - key: node.kubernetes.io/instance-type
+          operator: In
+          values:
+          - t3.large
+          - t3.xlarge
+
+# Production tolerations
+tolerations:
+- key: "dedicated"
+  operator: "Equal"
+  value: "flask-ecommerce"
+  effect: "NoSchedule"
+
+# Production environment variables
+env:
+  - name: FLASK_ENV
+    value: "production"
+  - name: FLASK_DEBUG
+    value: "false"
+  - name: LOG_LEVEL
+    value: "WARNING"
+  - name: CELERY_BROKER_URL
+    valueFrom:
+      secretKeyRef:
+        name: flask-ecommerce-secret
+        key: redis-url
+  - name: SENTRY_DSN
+    valueFrom:
+      secretKeyRef:
+        name: flask-ecommerce-secret
+        key: sentry-dsn
