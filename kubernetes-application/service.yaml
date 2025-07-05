@@ -15,7 +15,7 @@ spec:
     name: http
   selector:
     app: flask-ecommerce
-    component: backend
+    tier: backend
 ---
 apiVersion: v1
 kind: Service
@@ -25,6 +25,10 @@ metadata:
   labels:
     app: flask-ecommerce
     component: nginx
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
 spec:
   type: LoadBalancer
   ports:
@@ -46,11 +50,11 @@ metadata:
 spec:
   type: NodePort
   ports:
-  - port: 80
-    targetPort: 80
+  - port: 5000
+    targetPort: 5000
     nodePort: 30080
     protocol: TCP
     name: http
   selector:
     app: flask-ecommerce
-    component: nginx
+    tier: backend

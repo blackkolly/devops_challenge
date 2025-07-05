@@ -403,9 +403,9 @@ def api_products():
     return jsonify([dict(product) for product in products])
 
 @app.route('/health')
-def health_check():
-    """Health check endpoint for monitoring"""
-    return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
+def health():
+    """Health check endpoint for load balancer"""
+    return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()}), 200
 
 @app.errorhandler(404)
 def not_found(error):

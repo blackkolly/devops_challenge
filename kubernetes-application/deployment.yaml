@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: flask-ecommerce-app
+  name: flask-app-deployment
   namespace: flask-ecommerce
   labels:
     app: flask-ecommerce
@@ -37,7 +37,7 @@ spec:
       containers:
       - name: flask-app
         image: flask-ecommerce:latest
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - name: http
           containerPort: 5000
@@ -48,25 +48,17 @@ spec:
         - name: FLASK_DEBUG
           value: "false"
         - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: flask-ecommerce-secret
-              key: database-url
+          value: "sqlite:///app/data/ecommerce.db"
         - name: SECRET_KEY
           valueFrom:
             secretKeyRef:
-              name: flask-ecommerce-secret
-              key: secret-key
-        - name: REDIS_URL
-          valueFrom:
-            secretKeyRef:
-              name: flask-ecommerce-secret
-              key: redis-url
+              name: flask-app-secrets
+              key: SECRET_KEY
         - name: AWS_DEFAULT_REGION
           value: "us-west-2"
         envFrom:
         - configMapRef:
-            name: flask-ecommerce-config
+            name: flask-app-config
         resources:
           requests:
             memory: "256Mi"
@@ -113,14 +105,13 @@ spec:
             drop:
             - ALL
         volumeMounts:
-        - name: app-data
+        - name: db-storage
           mountPath: /app/data
         - name: tmp
           mountPath: /tmp
       volumes:
-      - name: app-data
-        persistentVolumeClaim:
-          claimName: flask-ecommerce-pvc
+      - name: db-storage
+        emptyDir: {}
       - name: tmp
         emptyDir: {}
       affinity:
@@ -144,48 +135,3 @@ spec:
         operator: "Exists"
         effect: "NoExecute"
         tolerationSeconds: 300
-            secretKeyRef:
-              name: flask-app-secrets
-              key: SECRET_KEY
-        volumeMounts:
-        - name: db-storage
-          mountPath: /app/data
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 5000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 5000
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 3
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "250m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-        securityContext:
-          allowPrivilegeEscalation: false
-          runAsNonRoot: true
-          runAsUser: 1000
-          capabilities:
-            drop:
-            - ALL
-      volumes:
-      - name: db-storage
-        persistentVolumeClaim:
-          claimName: flask-db-pvc
-      imagePullSecrets:
-      - name: registry-secret
-      restartPolicy: Always
-      securityContext:
-        fsGroup: 1000

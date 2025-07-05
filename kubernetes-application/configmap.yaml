@@ -48,7 +48,7 @@ data:
             }
             
             location /health {
-                proxy_pass http://flask_app/health;
+                proxy_pass http://flask_app/;
                 access_log off;
             }
         }

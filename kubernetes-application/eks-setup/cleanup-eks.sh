@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-CLUSTER_NAME="${CLUSTER_NAME:-flask-ecommerce-cluster}"
+CLUSTER_NAME="${CLUSTER_NAME:-flask-ecommerce-production-2024}"
 REGION="${AWS_REGION:-us-west-2}"
 NAMESPACE="${NAMESPACE:-flask-ecommerce}"
 RELEASE_NAME="${RELEASE_NAME:-flask-ecommerce}"
