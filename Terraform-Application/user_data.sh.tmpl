@@ -1,0 +1,11 @@
+#!/bin/bash
+# Install Docker and run Flask app container
+yum update -y
+yum install -y docker
+yum install -y git
+systemctl enable docker
+systemctl start docker
+# Pull and run your Flask app image from ECR
+aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin 779066052352.dkr.ecr.${region}.amazonaws.com
+docker pull 779066052352.dkr.ecr.${region}.amazonaws.com/blackkolly/flask_app:latest
+docker run -d -p 8080:5000 779066052352.dkr.ecr.${region}.amazonaws.com/blackkolly/flask_app:latest
