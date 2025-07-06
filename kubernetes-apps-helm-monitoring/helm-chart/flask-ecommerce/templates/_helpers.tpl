@@ -67,8 +67,10 @@ Database URL
 {{- define "flask-ecommerce.databaseUrl" -}}
 {{- if .Values.postgresql.enabled }}
 {{- printf "postgresql://%s:%s@%s-postgresql:5432/%s" .Values.postgresql.auth.username .Values.postgresql.auth.password .Release.Name .Values.postgresql.auth.database }}
-{{- else }}
+{{- else if and .Values.externalDatabase .Values.externalDatabase.url }}
 {{- .Values.externalDatabase.url }}
+{{- else }}
+{{- "sqlite:///app.db" }}
 {{- end }}
 {{- end }}
 
@@ -78,7 +80,9 @@ Redis URL
 {{- define "flask-ecommerce.redisUrl" -}}
 {{- if .Values.redis.enabled }}
 {{- printf "redis://:%s@%s-redis-master:6379/0" .Values.redis.auth.password .Release.Name }}
-{{- else }}
+{{- else if and .Values.externalRedis .Values.externalRedis.url }}
 {{- .Values.externalRedis.url }}
+{{- else }}
+{{- "redis://localhost:6379/0" }}
 {{- end }}
 {{- end }}

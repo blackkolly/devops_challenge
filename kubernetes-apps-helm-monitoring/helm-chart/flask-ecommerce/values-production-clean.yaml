@@ -1,0 +1,228 @@
+# Production values for Flask E-commerce Helm Chart - AWS EKS Optimized
+# Override default values for production environment on AWS
+
+replicaCount: 3
+
+image:
+  repository: "REPLACE_WITH_ECR_URI"  # Will be replaced by deploy script
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+# Service configuration for AWS
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 5000
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+
+# Production resource requirements
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# Enhanced autoscaling for production
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Production ingress configuration with AWS ALB
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
+    # alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-west-2:ACCOUNT:certificate/CERT-ID"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    # alb.ingress.kubernetes.io/ssl-redirect: '443'  # Enable when SSL certificate is configured
+  hosts:
+    - host: flask-ecommerce-eks.local  # Replace with your domain
+      paths:
+        - path: /
+          pathType: Prefix
+  # tls:  # Enable when SSL certificate is configured
+  #   - secretName: flask-ecommerce-tls
+  #     hosts:
+  #       - flask-ecommerce.yourdomain.com
+
+# AWS EBS storage configuration
+persistence:
+  enabled: false  # Using emptyDir for now due to EBS CSI issues
+  storageClass: "gp3"
+  accessMode: ReadWriteOnce
+  size: 10Gi
+
+# Environment variables for production
+env:
+  - name: FLASK_ENV
+    value: "production"
+  - name: SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        name: flask-app-secrets
+        key: SECRET_KEY
+  - name: DATABASE_URL
+    value: "sqlite:///app.db"  # Update with RDS when available
+
+# Production database configuration (optional)
+postgresql:
+  enabled: false  # Disable for now, using SQLite
+  auth:
+    postgresPassword: "your-secure-postgres-password"
+    username: "flaskapp" 
+    password: "your-secure-password"
+    database: "ecommerce_prod"
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+      storageClass: "gp3"
+    resources:
+      limits:
+        memory: 1Gi
+        cpu: 500m
+      requests:
+        memory: 512Mi
+        cpu: 250m
+
+# Production Redis configuration (optional)
+redis:
+  enabled: false  # Disable for now
+  auth:
+    enabled: true
+    password: "your-secure-redis-password"
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+      storageClass: "gp3"
+    resources:
+      limits:
+        memory: 512Mi
+        cpu: 250m
+      requests:
+        memory: 256Mi
+        cpu: 100m
+
+# Enhanced health checks for production
+healthCheck:
+  enabled: true
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 5000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 5000
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# Production monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+    path: /metrics
+    port: 5000
+
+# Production security settings
+podSecurityContext:
+  fsGroup: 2000
+  runAsNonRoot: true
+  runAsUser: 1000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+
+# Production network policy (optional)
+networkPolicy:
+  enabled: false  # Disable for now, can enable later
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: ingress-system
+      ports:
+      - protocol: TCP
+        port: 5000
+
+# Production affinity rules for high availability
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - flask-ecommerce
+        topologyKey: kubernetes.io/hostname
+
+# Node selector for specific instance types (optional)
+nodeSelector: {}
+
+# Tolerations for node taints (optional)
+tolerations: []
+
+# Pod disruption budget for high availability
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Service account configuration
+serviceAccount:
+  create: true
+  annotations:
+    # eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT:role/flask-ecommerce-role"
+  name: "flask-ecommerce"
+
+# Additional labels and annotations
+labels:
+  environment: "production"
+  app: "flask-ecommerce"
+  version: "v1.0.0"
+
+annotations:
+  deployment.kubernetes.io/revision: "1"
+  
+# Volume configuration (using emptyDir for now)
+volumes:
+  - name: app-storage
+    emptyDir: {}
+  - name: logs
+    emptyDir: {}
+
+volumeMounts:
+  - name: app-storage
+    mountPath: /app/data
+  - name: logs
+    mountPath: /app/logs

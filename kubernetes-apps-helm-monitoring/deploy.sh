@@ -14,6 +14,7 @@ NC='\033[0m'
 
 # Configuration
 NAMESPACE="flask-ecommerce"
+HELM_NAMESPACE="flask-ecommerce-helm"
 IMAGE_NAME="flask-ecommerce"
 IMAGE_TAG="${1:-latest}"
 KUBECONFIG_PATH="${KUBECONFIG:-~/.kube/config}"
@@ -210,67 +211,230 @@ deploy_monitoring() {
     fi
 }
 
-# Function to wait for deployment
-wait_for_deployment() {
-    print_status "Waiting for deployment to be ready..."
+# Function to deploy with Helm
+deploy_with_helm() {
+    print_status "Deploying Flask application with Helm..."
     
-    kubectl wait --for=condition=available --timeout=300s deployment/flask-app-deployment --namespace=$NAMESPACE
-    kubectl wait --for=condition=available --timeout=300s deployment/nginx-deployment --namespace=$NAMESPACE
+    # Check if Helm is installed
+    if ! command -v helm &> /dev/null; then
+        print_error "Helm is not installed. Please install Helm first."
+        echo "Install Helm:"
+        echo "  Windows: choco install kubernetes-helm"
+        echo "  macOS: brew install helm"
+        echo "  Linux: curl https://get.helm.sh/helm-v3.12.0-linux-amd64.tar.gz | tar xz && sudo mv linux-amd64/helm /usr/local/bin/"
+        exit 1
+    fi
     
-    print_success "Deployment is ready"
+    # Check if helm-chart directory exists
+    if [ ! -d "helm-chart/flask-ecommerce" ]; then
+        print_error "Helm chart directory not found. Please ensure helm-chart/flask-ecommerce exists."
+        exit 1
+    fi
+    
+    print_status "Using Helm version: $(helm version --short)"
+    
+    # Add required repositories
+    print_status "Adding Helm repositories..."
+    helm repo add bitnami https://charts.bitnami.com/bitnami
+    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+    helm repo update
+    
+    # Build dependencies
+    print_status "Building Helm dependencies..."
+    cd helm-chart/
+    helm dependency build flask-ecommerce/
+    
+    # Update values with ECR repository
+    print_status "Deploying with Helm using ECR image: ${ECR_REPOSITORY}:${IMAGE_TAG}"
+     # Deploy with Helm
+    helm upgrade --install flask-ecommerce-prod flask-ecommerce/ \
+        --namespace $HELM_NAMESPACE \
+        --create-namespace \
+        --values flask-ecommerce/values-production.yaml \
+        --set image.repository=${ECR_REPOSITORY} \
+        --set image.tag=${IMAGE_TAG} \
+        --set service.type=LoadBalancer \
+        --set service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-type"="nlb" \
+        --set service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-scheme"="internet-facing" \
+        --wait --timeout=600s
+
+    cd ..
+    print_success "Application deployed with Helm successfully"
+
+    # Show Helm release status
+    echo ""
+    print_status "Helm Release Information:"
+    helm status flask-ecommerce-prod -n $HELM_NAMESPACE
 }
 
-# Function to show status
-show_status() {
-    print_status "Deployment status:"
+# Function to setup monitoring with Prometheus and Grafana
+setup_monitoring() {
+    print_status "Setting up comprehensive monitoring stack..."
     
-    echo ""
-    echo "Pods:"
-    kubectl get pods --namespace=$NAMESPACE
+    # Check if Helm is installed
+    if ! command -v helm &> /dev/null; then
+        print_error "Helm is required for monitoring setup. Please install Helm first."
+        exit 1
+    fi
     
-    echo ""
-    echo "Services:"
-    kubectl get services --namespace=$NAMESPACE
+    # Add Helm repositories for monitoring
+    print_status "Adding monitoring Helm repositories..."
+    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+    helm repo add grafana https://grafana.github.io/helm-charts
+    helm repo update
     
-    echo ""
-    echo "Ingress:"
-    kubectl get ingress --namespace=$NAMESPACE
+    # Create monitoring namespace
+    print_status "Creating monitoring namespace..."
+    kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
     
-    # Get AWS LoadBalancer URL
+    # Install Prometheus Operator stack (includes Prometheus, Grafana, AlertManager)
+    print_status "Installing Prometheus stack (this may take 5-10 minutes)..."
+    helm upgrade --install prometheus-stack prometheus-community/kube-prometheus-stack \
+        --namespace monitoring \
+        --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+        --set prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false \
+        --set grafana.adminPassword=admin123 \
+        --set grafana.service.type=LoadBalancer \
+        --set grafana.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-type"="nlb" \
+        --set grafana.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-scheme"="internet-facing" \
+        --set prometheus.service.type=LoadBalancer \
+        --set prometheus.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-type"="nlb" \
+        --set prometheus.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-scheme"="internet-facing" \
+        --wait --timeout=900s
+    
+    # Wait for monitoring services to be ready
+    print_status "Waiting for monitoring services to be ready..."
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=grafana -n monitoring --timeout=300s
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=prometheus -n monitoring --timeout=300s
+    
+    # Deploy application-specific monitoring
+    if [ -f "monitoring.yaml" ]; then
+        print_status "Deploying application-specific monitoring..."
+        kubectl apply -f monitoring.yaml
+    fi
+    
+    # Deploy additional monitoring configurations
+    if [ -d "monitoring/" ]; then
+        print_status "Applying additional monitoring configurations..."
+        kubectl apply -f monitoring/ || print_warning "Some monitoring configurations may have failed"
+    fi
+    
+    print_success "Monitoring stack deployed successfully!"
+    
+    # Show access information
     echo ""
-    echo "Checking AWS LoadBalancer status..."
-    LB_HOSTNAME=$(kubectl get service flask-app-loadbalancer-aws --namespace=$NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
-    if [ ! -z "$LB_HOSTNAME" ]; then
-        echo "🌐 AWS LoadBalancer URL: http://$LB_HOSTNAME"
+    echo "🎯 MONITORING ACCESS INFORMATION"
+    echo "================================"
+    
+    # Get Grafana URL
+    GRAFANA_LB=$(kubectl get svc -n monitoring prometheus-stack-grafana -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+    if [ ! -z "$GRAFANA_LB" ]; then
+        echo "📊 Grafana Dashboard: http://$GRAFANA_LB"
+        echo "   Username: admin"
+        echo "   Password: admin123"
     else
-        echo "⏳ AWS LoadBalancer is provisioning... (this may take 2-5 minutes)"
+        echo "⏳ Grafana LoadBalancer is provisioning..."
+        echo "   Check status: kubectl get svc -n monitoring prometheus-stack-grafana"
     fi
     
-    # Get nginx service URL
-    NGINX_LB=$(kubectl get service nginx-service --namespace=$NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
-    if [ ! -z "$NGINX_LB" ]; then
-        echo "🌐 Nginx LoadBalancer URL: http://$NGINX_LB"
+    # Get Prometheus URL
+    PROMETHEUS_LB=$(kubectl get svc -n monitoring prometheus-stack-kube-prom-prometheus -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+    if [ ! -z "$PROMETHEUS_LB" ]; then
+        echo "🔍 Prometheus: http://$PROMETHEUS_LB:9090"
+    else
+        echo "⏳ Prometheus LoadBalancer is provisioning..."
+        echo "   Check status: kubectl get svc -n monitoring prometheus-stack-kube-prom-prometheus"
     fi
     
-    # Check NodePort
-    NODEPORT=$(kubectl get service flask-ecommerce-nodeport --namespace=$NAMESPACE -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null)
-    if [ ! -z "$NODEPORT" ]; then
-        echo "🌐 NodePort URL: http://<node-ip>:$NODEPORT"
-        
-        # Get actual node IPs
-        NODE_IPS=($(kubectl get nodes -o jsonpath='{.items[*].status.addresses[?(@.type=="ExternalIP")].address}'))
-        if [ ${#NODE_IPS[@]} -gt 0 ]; then
-            echo "Available node URLs:"
-            for NODE_IP in "${NODE_IPS[@]}"; do
-                echo "  http://$NODE_IP:$NODEPORT"
-            done
+    # Alternative local access
+    echo ""
+    echo "🔗 Alternative Local Access (Port Forwarding):"
+    echo "   Grafana: kubectl port-forward -n monitoring svc/prometheus-stack-grafana 3000:80"
+    echo "   Then visit: http://localhost:3000"
+    echo "   Prometheus: kubectl port-forward -n monitoring svc/prometheus-stack-kube-prom-prometheus 9090:9090"
+    echo "   Then visit: http://localhost:9090"
+    
+    echo ""
+    echo "📊 Recommended Grafana Dashboard IDs to import:"
+    echo "   • 6417 - Kubernetes Cluster Monitoring"
+    echo "   • 6336 - Kubernetes Pods Monitoring"
+    echo "   • 1860 - Node Exporter Full"
+    echo "   • 315 - Kubernetes cluster monitoring (via Prometheus)"
+}
+
+# Function to setup AWS CloudWatch integration
+setup_cloudwatch_monitoring() {
+    print_status "Setting up AWS CloudWatch Container Insights..."
+    
+    # Create CloudWatch namespace
+    kubectl apply -f https://raw.githubusercontent.com/aws-samples/amazon-cloudwatch-container-insights/latest/k8s-deployment-manifest-templates/deployment-mode/daemonset/container-insights-monitoring/cloudwatch-namespace.yaml
+    
+    # Create cluster info ConfigMap
+    kubectl create configmap cluster-info \
+        --from-literal=cluster.name=flask-ecommerce-production-2024 \
+        --from-literal=logs.region=us-west-2 \
+        -n amazon-cloudwatch \
+        --dry-run=client -o yaml | kubectl apply -f -
+    
+    # Deploy CloudWatch agent
+    kubectl apply -f https://raw.githubusercontent.com/aws-samples/amazon-cloudwatch-container-insights/latest/k8s-deployment-manifest-templates/deployment-mode/daemonset/container-insights-monitoring/cwagent/cwagent-daemonset.yaml
+    
+    # Deploy Fluent Bit for log collection
+    kubectl apply -f https://raw.githubusercontent.com/aws-samples/amazon-cloudwatch-container-insights/latest/k8s-deployment-manifest-templates/deployment-mode/daemonset/container-insights-monitoring/fluent-bit/fluent-bit.yaml
+    
+    print_success "CloudWatch Container Insights deployed"
+    print_status "View metrics in AWS CloudWatch Console under Container Insights"
+}
+
+# Function to show Helm status
+show_helm_status() {
+    print_status "Helm deployments status:"
+    
+    echo ""
+    echo "All Helm releases:"
+    helm list -A
+    
+    echo ""
+    echo "Flask E-Commerce release details:"
+    if helm status flask-ecommerce-prod -n $NAMESPACE &> /dev/null; then
+        helm status flask-ecommerce-prod -n $NAMESPACE
+    else
+        echo "Flask E-Commerce Helm release not found"
+    fi
+    
+    echo ""
+    echo "Monitoring stack status:"
+    if helm status prometheus-stack -n monitoring &> /dev/null; then
+        helm status prometheus-stack -n monitoring
+    else
+        echo "Monitoring stack not deployed via Helm"
+    fi
+}
+
+# Function to cleanup Helm deployments
+helm_cleanup() {
+    print_warning "Cleaning up Helm deployments..."
+    
+    # Uninstall Flask application
+    if helm status flask-ecommerce-prod -n $NAMESPACE &> /dev/null; then
+        print_status "Uninstalling Flask E-Commerce Helm release..."
+        helm uninstall flask-ecommerce-prod -n $NAMESPACE
+    fi
+    
+    # Optionally cleanup monitoring (ask user)
+    if helm status prometheus-stack -n monitoring &> /dev/null; then
+        read -p "Do you want to also remove the monitoring stack? (y/N): " cleanup_monitoring
+        if [ "$cleanup_monitoring" = "y" ] || [ "$cleanup_monitoring" = "Y" ]; then
+            print_status "Uninstalling monitoring stack..."
+            helm uninstall prometheus-stack -n monitoring
+            kubectl delete namespace monitoring --ignore-not-found=true
         fi
     fi
     
-    echo ""
-    echo "🎉 Flask E-Commerce application deployed successfully to AWS EKS us-west-2!"
-    echo ""
-    echo "📝 Note: AWS LoadBalancers may take 2-5 minutes to become fully available"
+    # Regular cleanup
+    cleanup
+    
+    print_success "Helm cleanup completed"
 }
 
 # Function to cleanup deployment
@@ -478,13 +642,25 @@ show_help() {
     echo "Options:"
     echo "  -h, --help        Show this help message"
     echo "  -c, --cleanup     Clean up the deployment"
+    echo "  --helm-cleanup    Clean up Helm deployments"
     echo "  --aws-cleanup     Delete ALL AWS resources (EKS, ECR, etc.)"
     echo "  -b, --build       Build Docker image before deployment"
     echo "  -s, --status      Show deployment status only"
+    echo "  --helm-status     Show Helm deployments status"
     echo "  -t, --troubleshoot Run network troubleshooting"
     echo "  -f, --fix         Attempt to fix networking issues"
     echo "  -T, --test        Test external access to the application"
     echo "  --final-help      Show final troubleshooting recommendations"
+    echo ""
+    echo "🎯 Helm Deployment Options:"
+    echo "  --helm            Deploy using Helm charts"
+    echo "  --helm-build      Build image and deploy with Helm"
+    echo "  --helm-upgrade    Upgrade existing Helm deployment"
+    echo ""
+    echo "📊 Monitoring Options:"
+    echo "  --monitoring      Setup Prometheus + Grafana monitoring"
+    echo "  --cloudwatch      Setup AWS CloudWatch Container Insights"
+    echo "  --full-stack      Deploy app + monitoring (complete stack)"
     echo ""
     echo "Environment Variables:"
     echo "  AWS_REGION       AWS region (default: us-west-2)"
@@ -496,9 +672,15 @@ show_help() {
     echo "  $0                     # Deploy with latest tag from ECR"
     echo "  $0 v1.0.0             # Deploy with specific tag from ECR"
     echo "  $0 --build v1.0.0     # Build, push to ECR, and deploy"
+    echo "  $0 --helm v1.0.0      # Deploy with Helm charts"
+    echo "  $0 --helm-build v1.0.0 # Build and deploy with Helm"
+    echo "  $0 --monitoring       # Setup monitoring stack only"
+    echo "  $0 --full-stack v1.0.0 # Deploy app + monitoring"
     echo "  $0 --cleanup          # Clean up deployment"
-    echo "  $0 --aws-cleanup      # Delete ALL AWS resources (EKS, ECR, etc.)"
+    echo "  $0 --helm-cleanup     # Clean up Helm deployments"
+    echo "  $0 --aws-cleanup      # Delete ALL AWS resources"
     echo "  $0 --status           # Show status only"
+    echo "  $0 --helm-status      # Show Helm status"
     echo "  $0 --troubleshoot     # Run network diagnostics"
     echo "  $0 --fix              # Fix networking issues"
     echo "  $0 --test             # Test external access"
@@ -508,6 +690,12 @@ show_help() {
     echo "  • kubectl configured for EKS cluster"
     echo "  • Docker installed and running"
     echo "  • eksctl installed (for cluster management)"
+    echo "  • Helm installed (for Helm deployment options)"
+    echo ""
+    echo "📚 Documentation:"
+    echo "  • README.md - Complete deployment guide"
+    echo "  • HELM_AND_MONITORING_GUIDE.md - Helm & monitoring guide"
+    echo "  • DEPLOYMENT_CHALLENGES_AND_SOLUTIONS.md - Troubleshooting"
 }
 
 # Function to troubleshoot network connectivity
@@ -728,6 +916,101 @@ provide_final_steps() {
     print_success "Final troubleshooting guide provided"
 }
 
+# Function to wait for deployment
+wait_for_deployment() {
+    print_status "Waiting for deployment to be ready..."
+    
+    kubectl wait --for=condition=available --timeout=300s deployment/flask-app-deployment --namespace=$NAMESPACE
+    kubectl wait --for=condition=available --timeout=300s deployment/nginx-deployment --namespace=$NAMESPACE
+    
+    print_success "Deployment is ready"
+}
+
+# Function to show status
+show_status() {
+    print_status "Deployment status:"
+    
+    # Check traditional namespace first
+    echo ""
+    echo "=== Traditional Deployment ($NAMESPACE) ==="
+    if kubectl get namespace $NAMESPACE &>/dev/null; then
+        echo "Pods:"
+        kubectl get pods --namespace=$NAMESPACE
+        
+        echo ""
+        echo "Services:"
+        kubectl get services --namespace=$NAMESPACE
+        
+        echo ""
+        echo "Ingress:"
+        kubectl get ingress --namespace=$NAMESPACE
+        
+        # Get AWS LoadBalancer URL
+        echo ""
+        echo "Checking AWS LoadBalancer status..."
+        LB_HOSTNAME=$(kubectl get service flask-app-loadbalancer-aws --namespace=$NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+        if [ ! -z "$LB_HOSTNAME" ]; then
+            echo "🌐 AWS LoadBalancer URL: http://$LB_HOSTNAME"
+        else
+            echo "⏳ AWS LoadBalancer is provisioning... (this may take 2-5 minutes)"
+        fi
+        
+        # Get nginx service URL
+        NGINX_LB=$(kubectl get service nginx-service --namespace=$NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+        if [ ! -z "$NGINX_LB" ]; then
+            echo "🌐 Nginx LoadBalancer URL: http://$NGINX_LB"
+        fi
+        
+        # Check NodePort
+        NODEPORT=$(kubectl get service flask-ecommerce-nodeport --namespace=$NAMESPACE -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null)
+        if [ ! -z "$NODEPORT" ]; then
+            echo "🌐 NodePort URL: http://<node-ip>:$NODEPORT"
+            
+            # Get actual node IPs
+            NODE_IPS=($(kubectl get nodes -o jsonpath='{.items[*].status.addresses[?(@.type=="ExternalIP")].address}'))
+            if [ ${#NODE_IPS[@]} -gt 0 ]; then
+                echo "Available node URLs:"
+                for NODE_IP in "${NODE_IPS[@]}"; do
+                    echo "  http://$NODE_IP:$NODEPORT"
+                done
+            fi
+        fi
+    else
+        echo "Namespace $NAMESPACE not found or terminating"
+    fi
+    
+    # Check Helm namespace
+    echo ""
+    echo "=== Helm Deployment ($HELM_NAMESPACE) ==="
+    if kubectl get namespace $HELM_NAMESPACE &>/dev/null; then
+        echo "Pods:"
+        kubectl get pods --namespace=$HELM_NAMESPACE
+        
+        echo ""
+        echo "Services:"
+        kubectl get services --namespace=$HELM_NAMESPACE
+        
+        echo ""
+        echo "Helm Releases:"
+        helm list -n $HELM_NAMESPACE
+        
+        # Check Helm-deployed LoadBalancer
+        HELM_LB=$(kubectl get service -l app.kubernetes.io/managed-by=Helm --namespace=$HELM_NAMESPACE -o jsonpath='{.items[?(@.spec.type=="LoadBalancer")].status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+        if [ ! -z "$HELM_LB" ]; then
+            echo "🌐 Helm LoadBalancer URL: http://$HELM_LB"
+        else
+            echo "⏳ Helm LoadBalancer is provisioning... (this may take 2-5 minutes)"
+        fi
+    else
+        echo "Namespace $HELM_NAMESPACE not found"
+    fi
+    
+    echo ""
+    echo "🎉 Flask E-Commerce application deployment status checked!"
+    echo ""
+    echo "📝 Note: AWS LoadBalancers may take 2-5 minutes to become fully available"
+}
+
 # Main function
 main() {
     echo "🚀 Flask E-Commerce Kubernetes Deployment"
@@ -742,12 +1025,20 @@ main() {
             cleanup
             exit 0
             ;;
+        --helm-cleanup)
+            helm_cleanup
+            exit 0
+            ;;
         --aws-cleanup)
             aws_cleanup
             exit 0
             ;;
         -s|--status)
             show_status
+            exit 0
+            ;;
+        --helm-status)
+            show_helm_status
             exit 0
             ;;
         -t|--troubleshoot)
@@ -766,6 +1057,65 @@ main() {
             provide_final_steps
             exit 0
             ;;
+        --helm)
+            IMAGE_TAG="${2:-latest}"
+            check_prerequisites
+            setup_ecr
+            deploy_with_helm
+            show_status
+            exit 0
+            ;;
+        --helm-build)
+            IMAGE_TAG="${2:-latest}"
+            check_prerequisites
+            setup_ecr
+            build_image
+            deploy_with_helm
+            show_status
+            exit 0
+            ;;
+        --helm-upgrade)
+            IMAGE_TAG="${2:-latest}"
+            check_prerequisites
+            setup_ecr
+            print_status "Upgrading Helm deployment..."
+            cd helm-chart/
+            helm upgrade flask-ecommerce-prod flask-ecommerce/ \
+                --namespace $HELM_NAMESPACE \
+                --values flask-ecommerce/values-production.yaml \
+                --set image.repository=${ECR_REPOSITORY} \
+                --set image.tag=${IMAGE_TAG} \
+                --wait
+            cd ..
+            show_status
+            exit 0
+            ;;
+        --monitoring)
+            check_prerequisites
+            setup_monitoring
+            exit 0
+            ;;
+        --cloudwatch)
+            check_prerequisites
+            setup_cloudwatch_monitoring
+            exit 0
+            ;;
+        --full-stack)
+            IMAGE_TAG="${2:-latest}"
+            check_prerequisites
+            setup_ecr
+            if [ "$2" = "build" ] || [ "$3" = "build" ]; then
+                build_image
+            fi
+            deploy_with_helm
+            setup_monitoring
+            setup_cloudwatch_monitoring
+            show_status
+            echo ""
+            print_success "🎉 Full stack deployment completed!"
+            echo "Application + Monitoring + CloudWatch Integration deployed"
+            exit 0
+            ;;
         -b|--build)
             IMAGE_TAG="${2:-latest}"
             check_prerequisites
@@ -778,7 +1128,7 @@ main() {
             ;;
     esac
     
-    # Deploy application
+    # Standard deployment (non-Helm)
     create_namespace
     deploy_configs
     deploy_storage

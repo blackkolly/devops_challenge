@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  flask-ecommerce:
+    build: 
+      context: "../../flask web application"
+      dockerfile: Dockerfile
+    ports:
+      - "8080:5000"
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_URL=sqlite:///app.db
+      - SECRET_KEY=dev-secret-key
+    volumes:
+      - flask_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  flask_data:

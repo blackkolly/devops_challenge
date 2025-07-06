@@ -1,0 +1,69 @@
+# NodePort Values for Flask E-commerce (Bypass LoadBalancer Issues)
+# This configuration uses NodePort to avoid AWS LoadBalancer Controller permission issues
+
+replicaCount: 2
+
+image:
+  repository: "REPLACE_WITH_ECR_URI"  # Will be replaced by deploy script
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+# Service configuration using NodePort
+service:
+  type: NodePort
+  port: 80
+  targetPort: 5000
+  nodePort: 30080  # Accessible on all nodes at port 30080
+
+# Lightweight resource requirements
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# Simple autoscaling
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+# Disable ingress for now
+ingress:
+  enabled: false
+
+# DISABLE PERSISTENT STORAGE (fixes EBS CSI issues)
+persistence:
+  enabled: false
+
+# DISABLE heavy dependencies to avoid timeout
+postgresql:
+  enabled: false
+
+redis:
+  enabled: false
+
+# Environment variables for the application
+env:
+  - name: FLASK_ENV
+    value: "production"
+  - name: DATABASE_URL
+    value: "sqlite:///app.db"  # Using SQLite for stateless deployment
+
+# Health checks
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 5000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 5000
+  initialDelaySeconds: 5
+  periodSeconds: 5
