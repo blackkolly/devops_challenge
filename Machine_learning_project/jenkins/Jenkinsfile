@@ -1,0 +1,21 @@
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+                sh 'docker build -t ml-flask-api ./flask_api'
+                sh 'docker build -t ml-streamlit-app ./streamlit_app'
+            }
+        }
+        stage('Test') {
+            steps {
+                echo 'Add your test steps here'
+            }
+        }
+        stage('Deploy') {
+            steps {
+                echo 'Deploy to EKS using kubectl/helm'
+            }
+        }
+    }
+}

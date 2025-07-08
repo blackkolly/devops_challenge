@@ -1,0 +1,10 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: "pagerduty-notifications"
+
+receivers:
+  - name: "pagerduty-notifications"
+    pagerduty_configs:
+      - routing_key: "94b7b24020d84406c0b04e1e81f424fe"

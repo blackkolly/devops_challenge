@@ -1,0 +1,17 @@
+groups:
+  - name: flask_app_alerts
+    rules:
+      - alert: HighErrorRate
+        expr: increase(flask_http_request_total{status="500"}[5m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+      - alert: SLAUptimeLow
+        expr: sum(rate(flask_http_request_total[5m])) < 0.99
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SLA uptime below 99%"
